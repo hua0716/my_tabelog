@@ -23,9 +23,17 @@ export function filtered(){
     (!q || (r.name + ' ' + (r.comments||'') + ' ' + (r.addr||'')).toLowerCase().includes(q)));
 }
 
+// 手機版收起篩選時，用小標籤提醒目前套用了幾項篩選
+function updateFilterBadge(){
+  const n = [state.q.trim(), state.cat !== '全部', state.visit !== 'all', state.minRate !== 0].filter(Boolean).length;
+  $('filterBadge').textContent = n ? `已套用 ${n} 項` : '';
+  $('filterBadge').classList.toggle('on', n > 0);
+}
+
 // 重畫列表與地圖圓點
 export function render(){
   $('catSel').value = state.cat;
+  updateFilterBadge();
   const items = filtered();
   $('list').innerHTML = items.length ? items.map(r => `
     <div class="item ${state.activeId===r.id?'active':''}" data-id="${r.id}">
@@ -57,4 +65,10 @@ export function initList(){
     setActive(it.dataset.id);
   };
   $('toggleList').onclick = () => $('app').classList.add('list-open');
+  // 手機版：搜尋與篩選可以展開／收合（電腦版一律顯示）
+  $('filterToggle').onclick = () => {
+    const open = $('filterToggle').closest('.head').classList.toggle('filters-open');
+    $('filterToggle').setAttribute('aria-expanded', open);
+    if (open) setTimeout(() => $('q').focus({ preventScroll:true }), 50);
+  };
 }

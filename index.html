@@ -10,30 +10,30 @@
       onerror="this.onerror=null;this.href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css'">
 <!-- VERSION:START -->
 <!-- 版本號由 tools/bump_version.py 產生，請勿手動修改 -->
-<link rel="stylesheet" href="css/style.css?v=20261118140702">
+<link rel="stylesheet" href="css/style.css?v=20261118141511">
 <script type="importmap">
 {
   "imports": {
-    "./js/admin.js": "./js/admin.js?v=20261118140702",
-    "./js/auth.js": "./js/auth.js?v=20261118140702",
-    "./js/config.js": "./js/config.js?v=20261118140702",
-    "./js/form.js": "./js/form.js?v=20261118140702",
-    "./js/gmaps.js": "./js/gmaps.js?v=20261118140702",
-    "./js/list.js": "./js/list.js?v=20261118140702",
-    "./js/locate.js": "./js/locate.js?v=20261118140702",
-    "./js/main.js": "./js/main.js?v=20261118140702",
-    "./js/map.js": "./js/map.js?v=20261118140702",
-    "./js/markers.js": "./js/markers.js?v=20261118140702",
-    "./js/prefs.js": "./js/prefs.js?v=20261118140702",
-    "./js/settings.js": "./js/settings.js?v=20261118140702",
-    "./js/state.js": "./js/state.js?v=20261118140702",
-    "./js/store.js": "./js/store.js?v=20261118140702",
-    "./js/sync.js": "./js/sync.js?v=20261118140702",
-    "./js/utils.js": "./js/utils.js?v=20261118140702"
+    "./js/admin.js": "./js/admin.js?v=20261118141511",
+    "./js/auth.js": "./js/auth.js?v=20261118141511",
+    "./js/config.js": "./js/config.js?v=20261118141511",
+    "./js/form.js": "./js/form.js?v=20261118141511",
+    "./js/gmaps.js": "./js/gmaps.js?v=20261118141511",
+    "./js/list.js": "./js/list.js?v=20261118141511",
+    "./js/locate.js": "./js/locate.js?v=20261118141511",
+    "./js/main.js": "./js/main.js?v=20261118141511",
+    "./js/map.js": "./js/map.js?v=20261118141511",
+    "./js/markers.js": "./js/markers.js?v=20261118141511",
+    "./js/prefs.js": "./js/prefs.js?v=20261118141511",
+    "./js/settings.js": "./js/settings.js?v=20261118141511",
+    "./js/state.js": "./js/state.js?v=20261118141511",
+    "./js/store.js": "./js/store.js?v=20261118141511",
+    "./js/sync.js": "./js/sync.js?v=20261118141511",
+    "./js/utils.js": "./js/utils.js?v=20261118141511"
   }
 }
 </script>
-<script type="module" src="./js/main.js?v=20261118140702"></script>
+<script type="module" src="./js/main.js?v=20261118141511"></script>
 <!-- VERSION:END -->
 </head>
 <body>
@@ -42,6 +42,12 @@
     <div class="head">
       <h1 class="title">派大星想吃美味蟹堡</h1>
       <div class="editbar" id="editbar"></div>
+      <button type="button" class="filter-toggle" id="filterToggle" aria-expanded="false" aria-controls="filterPanel">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <span>搜尋與篩選</span><span class="filter-badge" id="filterBadge"></span>
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="filter-panel" id="filterPanel">
       <input id="q" class="search" type="search" placeholder="搜尋餐廳名稱、地址或備註">
       <div class="filters">
         <label>分類
@@ -61,6 +67,7 @@
       </div>
       <div class="row">
         <div class="legend" id="legend"></div>
+      </div>
       </div>
     </div>
     <div class="list" id="list"></div>

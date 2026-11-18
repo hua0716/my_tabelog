@@ -151,6 +151,22 @@ async def main():
         await page.keyboard.press('Escape'); await page.wait_for_timeout(50)
         check(not await page.is_visible('#overlay') and await page.query_selector('.temp-pin') is None, 'Esc 關閉表單並移除暫時標記')
 
+        # 電腦版：搜尋與篩選一律顯示，沒有展開按鈕
+        check(await page.is_visible('#q') and not await page.is_visible('#filterToggle'), '電腦版直接顯示搜尋與篩選，不出現展開按鈕')
+
+        # 手機版：搜尋與篩選預設收起，可展開；有篩選時顯示提示
+        await page.set_viewport_size({'width':390, 'height':844}); await page.wait_for_timeout(100)
+        await page.click('#toggleList'); await page.wait_for_timeout(350)
+        check(await page.is_visible('#filterToggle') and not await page.is_visible('#q'), '手機版預設收起搜尋與篩選')
+        await page.click('#filterToggle'); await page.wait_for_timeout(100)
+        check(await page.is_visible('#q') and await page.is_visible('#catSel'), '手機版點「搜尋與篩選」可展開')
+        await page.select_option('#catSel', '日式'); await page.click('#filterToggle'); await page.wait_for_timeout(100)
+        badge = await page.inner_text('#filterBadge')
+        check(not await page.is_visible('#q') and badge == '已套用 1 項', f'收起後顯示「{badge}」提醒有套用篩選')
+        await page.click('#filterToggle'); await page.select_option('#catSel', '全部'); await page.wait_for_timeout(50)
+        check(not await page.is_visible('#filterBadge'), '清除篩選後提示消失')
+        await page.set_viewport_size({'width':1280, 'height':800})
+
         await page.screenshot(path=str(pathlib.Path(__file__).resolve().parent / 'after.png'))
         bad = [c for c in console if 'Failed to load resource' not in c and 'net::ERR' not in c]
         check(not bad, '沒有 JavaScript 錯誤' + ('' if not bad else '：' + ' | '.join(bad[:5])))
