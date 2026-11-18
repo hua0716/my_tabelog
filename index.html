@@ -440,15 +440,15 @@ function addPoiLayers(source, textFont, NAME){
     layout:{ 'text-field':NAME, 'text-font':textFont, 'text-size':['interpolate',['linear'],['zoom'],...size],
              'text-optional':true, 'text-max-width':8, ...extra },
     paint:{ 'text-color':color, 'text-halo-color':'#fff', 'text-halo-width':1.5 } });
-  const dot = (id, filter, minzoom, color, r) => map.addLayer({
+  const dot = (id, filter, minzoom, color, r, stroke = 1.5) => map.addLayer({
     id, type:'circle', source, 'source-layer':'poi', minzoom, filter,
-    paint:{ 'circle-radius':r, 'circle-color':color, 'circle-stroke-color':'#fff', 'circle-stroke-width':1.5 } });
+    paint:{ 'circle-radius':r, 'circle-color':color, 'circle-stroke-color':'#fff', 'circle-stroke-width':stroke } });
 
   // 捷運站／火車站（不含出入口）
   const station = ['all', ['==', ['get','class'], 'railway'],
     ['!', ['in', ['get','subclass'], ['literal', ['subway_entrance','train_station_entrance','platform']]]]];
-  dot('stations-dot', station, 12, '#0b6fb8', ['interpolate',['linear'],['zoom'],12,3,16,5.5]);
-  label('stations-label', station, 13, '#0b4f86', [13,11,17,13], { 'text-offset':[0,0.9], 'text-anchor':'top' });
+  dot('stations-dot', station, 12, '#0b6fb8', ['interpolate',['linear'],['zoom'],12,2,16,3.5], 1);
+  label('stations-label', station, 13, '#0b4f86', [13,11,17,13], { 'text-offset':[0,0.6], 'text-anchor':'top' });
 
   // 公園綠地：只顯示名稱
   label('parks-label', cls(['park','garden']), 13, '#2b7a3a', [13,11,17,13]);
