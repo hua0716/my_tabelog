@@ -151,6 +151,12 @@ async def main():
         await page.keyboard.press('Escape'); await page.wait_for_timeout(50)
         check(not await page.is_visible('#overlay') and await page.query_selector('.temp-pin') is None, 'Esc 關閉表單並移除暫時標記')
 
+        # 圓點：外層不可有動畫（否則拖曳地圖時會延遲），外觀與放大效果在內層
+        tr = await page.evaluate("getComputedStyle(document.querySelector('.marker')).transitionDuration")
+        check(tr in ('0s', ''), f'圓點外層沒有動畫，拖曳時不會延遲（transition={tr}）')
+        inner = await page.evaluate("!!document.querySelector('.marker > .marker-dot')")
+        check(inner, '圓點外觀在內層 .marker-dot')
+
         # 電腦版：搜尋與篩選一律顯示，沒有展開按鈕
         check(await page.is_visible('#q') and not await page.is_visible('#filterToggle'), '電腦版直接顯示搜尋與篩選，不出現展開按鈕')
 

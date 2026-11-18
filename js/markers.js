@@ -31,10 +31,14 @@ export function renderMarkers(){
   Object.values(markers).forEach(m => m.remove());
   markers = {};
   filtered().forEach(r => {
+    // 外層跟著地圖移動，內層是看得到的圓點（見 style.css 的說明）
     const el = document.createElement('div');
     el.className = 'marker' + (r.visited ? '' : ' want') + (state.activeId === r.id ? ' active' : '');
-    el.style.borderColor = r.visited ? '' : catOf(r.cat).color;
-    el.style.background = catOf(r.cat).color;
+    const dot = document.createElement('div');
+    dot.className = 'marker-dot';
+    dot.style.background = catOf(r.cat).color;
+    if (!r.visited) dot.style.borderColor = catOf(r.cat).color;
+    el.appendChild(dot);
     el.title = r.name;
     el.addEventListener('click', () => { if (!state.adding) setActive(r.id, false); });
     const popup = new maplibregl.Popup({ offset:12, maxWidth:'280px' }).setHTML(popupHtml(r));
