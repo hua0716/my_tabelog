@@ -147,7 +147,7 @@
         </label>
         <label>評分
           <select id="minRate">
-            <option value="0">不限</option><option value="3">3 以上</option>
+            <option value="0">不限</option><option value="-3">3 以下</option><option value="3">3 以上</option>
             <option value="4">4 以上</option><option value="5">5</option>
           </select>
         </label>
@@ -413,12 +413,20 @@ function setBase(key){
 }
 
 /* ---------- 篩選與繪製 ---------- */
+// 評分篩選：0＝不限，正數＝「N 以上」，負數＝「N 以下」（只看已探訪的餐廳）
+function rateOk(r){
+  const f = state.minRate;
+  if (!f) return true;
+  if (!r.visited || !r.rating) return false;
+  return f > 0 ? r.rating >= f : r.rating <= -f;
+}
+
 function filtered(){
   const q = state.q.trim().toLowerCase();
   return store.all().filter(r =>
     (state.cat === '全部' || r.cat === state.cat) &&
     (state.visit === 'all' || (state.visit === 'yes') === r.visited) &&
-    (!state.minRate || (r.visited && r.rating >= state.minRate)) &&
+    rateOk(r) &&
     (!q || (r.name + ' ' + (r.note||'') + ' ' + (r.addr||'')).toLowerCase().includes(q)));
 }
 
@@ -602,7 +610,7 @@ $('form').onsubmit = async e => {
     closeForm();
     if (state.cat !== '全部' && state.cat !== saved.cat) state.cat = '全部';
     if (state.visit !== 'all' && (state.visit === 'yes') !== saved.visited){ state.visit = 'all'; $('visitSel').value = 'all'; }
-    if (state.minRate && !(saved.visited && saved.rating >= state.minRate)){ state.minRate = 0; $('minRate').value = '0'; }
+    if (!rateOk(saved)){ state.minRate = 0; $('minRate').value = '0'; }
     render(); setActive(saved.id);
     toast('已儲存');
   } catch(err){ handleError(err); if (err.code === 'invalid_pin') closeForm(); }
