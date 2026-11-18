@@ -27,10 +27,15 @@
   .search{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);outline:none}
   .search:focus{border-color:#bbb;background:#fff}
   .filters{display:flex;gap:8px;margin-top:10px}
-  .filters label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .filters label{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
   .filters select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:#fff;font-size:13px;color:var(--ink)}
   .legend{display:flex;flex-wrap:wrap;gap:4px 10px}
   .legend span{display:inline-flex;align-items:center;gap:4px}
+  .ring{width:9px;height:9px;border-radius:50%;border:2px solid #888;box-sizing:border-box;display:inline-block}
+  .tag-want{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 7px;color:#666;line-height:18px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:999px;padding:2px;width:max-content}
+  .seg button{border:0;background:none;border-radius:999px;padding:5px 14px;font-size:13px;cursor:pointer;color:#666}
+  .seg button.on{background:var(--ink);color:#fff}
   .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 11px;font-size:13px;cursor:pointer;color:#555}
   .chip:hover{border-color:#ccc}
   .chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -69,6 +74,7 @@
   /* 標記 */
   .marker{width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);cursor:pointer;transition:transform .15s}
   .marker:hover{transform:scale(1.25)}
+  .marker.want{background:#fff !important;border-width:3.5px;width:15px;height:15px;box-shadow:0 0 0 1.5px #fff,0 1px 4px rgba(0,0,0,.3)}
   .marker.active{transform:scale(1.45);box-shadow:0 0 0 4px rgba(0,0,0,.12),0 1px 4px rgba(0,0,0,.3)}
 
   .maplibregl-popup-content{border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);font-family:var(--font)}
@@ -134,6 +140,11 @@
         <label>分類
           <select id="catSel"></select>
         </label>
+        <label>狀態
+          <select id="visitSel">
+            <option value="all">全部</option><option value="yes">已拜訪</option><option value="no">想去</option>
+          </select>
+        </label>
         <label>評分
           <select id="minRate">
             <option value="0">不限</option><option value="3">3 以上</option>
@@ -183,7 +194,8 @@
     <div class="field"><label>餐廳名稱</label><input id="fName" maxlength="60"></div>
     <div class="err" id="fErr">請填寫餐廳名稱</div>
     <div class="field"><label>類別</label><div class="cat-pick" id="fCat"></div></div>
-    <div class="field"><label>評分</label><div class="rate" id="fRate"></div></div>
+    <div class="field"><label>狀態</label><div class="seg" id="fVisit"><button type="button" data-v="1">已拜訪</button><button type="button" data-v="0">想去</button></div></div>
+    <div class="field" id="fRateField"><label>評分</label><div class="rate" id="fRate"></div></div>
     <div class="field"><label>地址（選填）</label><input id="fAddr" maxlength="120"></div>
     <div class="field"><label>備註／推薦菜色</label><textarea id="fNote" maxlength="500"></textarea></div>
     <div class="foot">
@@ -258,7 +270,7 @@ const savePrefs = () => { try { localStorage.setItem('tfm-prefs', JSON.stringify
 
 /* ================= 資料層：Supabase ================= */
 let sb;
-const norm = r => ({ ...r, addr: r.addr || '', note: r.note || '', by: r.created_by });
+const norm = r => ({ ...r, addr: r.addr || '', note: r.note || '', by: r.created_by, visited: r.visited !== false });
 const store = {
   _items: [],
   init(){ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } }); },
@@ -277,12 +289,12 @@ const store = {
   async verify(pin){ return (await this._rpc('verify_pin', { p_pin:pin })).name; },
   async add(r, pin){
     const d = await this._rpc('add_restaurant', { p_pin:pin, p_name:r.name, p_cat:r.cat, p_rating:r.rating,
-      p_lat:r.lat, p_lng:r.lng, p_addr:r.addr, p_note:r.note });
+      p_lat:r.lat, p_lng:r.lng, p_addr:r.addr, p_note:r.note, p_visited:r.visited });
     const it = norm(d.data); this._items.unshift(it); return it;
   },
   async update(id, r, pin){
     const d = await this._rpc('update_restaurant', { p_pin:pin, p_id:id, p_name:r.name, p_cat:r.cat,
-      p_rating:r.rating, p_addr:r.addr, p_note:r.note });
+      p_rating:r.rating, p_addr:r.addr, p_note:r.note, p_visited:r.visited });
     const it = norm(d.data); this._items = this._items.map(x => x.id === id ? it : x); return it;
   },
   async remove(id, pin){
@@ -326,8 +338,9 @@ function startApp(){
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ratingText = n => '★'.repeat(n) + '<span style="color:#ddd">' + '★'.repeat(5-n) + '</span>';
+const statusHtml = r => r.visited ? `<span class="rating">${ratingText(r.rating || 0)}</span>` : '<span class="tag-want">想去</span>';
 
-const state = { cat:'全部', q:'', minRate:0, adding:false, activeId:null, editing:null, pending:null, rating:4, formCat:CATEGORIES[0].id };
+const state = { cat:'全部', visit:'all', formVisited:true, q:'', minRate:0, adding:false, activeId:null, editing:null, pending:null, rating:4, formCat:CATEGORIES[0].id };
 let map, markers = {};
 
 /* ---------- 地圖 ---------- */
@@ -402,7 +415,8 @@ function filtered(){
   const q = state.q.trim().toLowerCase();
   return store.all().filter(r =>
     (state.cat === '全部' || r.cat === state.cat) &&
-    r.rating >= state.minRate &&
+    (state.visit === 'all' || (state.visit === 'yes') === r.visited) &&
+    (!state.minRate || (r.visited && r.rating >= state.minRate)) &&
     (!q || (r.name + ' ' + (r.note||'') + ' ' + (r.addr||'')).toLowerCase().includes(q)));
 }
 
@@ -411,7 +425,7 @@ function popupHtml(r){
   const gmap = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name.replace(/^範例・/,'') + ' ' + (r.addr||''))}`;
   return `<div class="pop">
     <h3><span class="dot" style="background:${c.color}"></span>${esc(r.name)}</h3>
-    <div class="meta"><span class="rating">${ratingText(r.rating)}</span>　${esc(r.cat)}${r.addr ? '・'+esc(r.addr) : ''}</div>
+    <div class="meta">${statusHtml(r)}　${esc(r.cat)}${r.addr ? '・'+esc(r.addr) : ''}</div>
     ${r.note ? `<p>${esc(r.note)}</p>` : ''}
     <div class="meta">由 ${esc(r.by)} 新增${r.updated_by && r.updated_by !== r.by ? `・${esc(r.updated_by)} 編輯過` : ''}</div>
     <div class="actions">
@@ -425,7 +439,8 @@ function renderMarkers(){
   markers = {};
   filtered().forEach(r => {
     const el = document.createElement('div');
-    el.className = 'marker' + (state.activeId === r.id ? ' active' : '');
+    el.className = 'marker' + (r.visited ? '' : ' want') + (state.activeId === r.id ? ' active' : '');
+    el.style.borderColor = r.visited ? '' : catOf(r.cat).color;
     el.style.background = catOf(r.cat).color;
     el.title = r.name;
     el.addEventListener('click', ev => { ev.stopPropagation(); if (!state.adding) setActive(r.id, false); });
@@ -442,7 +457,7 @@ function render(){
     <div class="item ${state.activeId===r.id?'active':''}" data-id="${r.id}">
       <span class="dot" style="background:${catOf(r.cat).color}"></span>
       <div><h3>${esc(r.name)}</h3>
-        <div class="meta"><span class="rating">${ratingText(r.rating)}</span>　${esc(r.cat)}${r.addr ? '・'+esc(r.addr) : ''}</div>
+        <div class="meta">${statusHtml(r)}　${esc(r.cat)}${r.addr ? '・'+esc(r.addr) : ''}</div>
       </div>
     </div>`).join('') : `<div class="empty">${store.all().length ? '沒有符合條件的餐廳<br>試試其他篩選條件' : '還沒有任何餐廳<br>輸入 PIN 後，點「＋ 新增餐廳」開始標記'}</div>`;
   renderMarkers();
@@ -544,6 +559,11 @@ $('fCat').onclick = e => { const b = e.target.closest('button'); if (b){ state.f
 function renderRate(){
   $('fRate').innerHTML = [1,2,3,4,5].map(n => `<button type="button" data-n="${n}" class="${n<=state.rating?'on':''}">★</button>`).join('');
 }
+function renderVisit(){
+  document.querySelectorAll('#fVisit button').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === state.formVisited));
+  $('fRateField').style.display = state.formVisited ? '' : 'none';
+}
+$('fVisit').onclick = e => { const b = e.target.closest('button'); if (b){ state.formVisited = b.dataset.v === '1'; renderVisit(); } };
 $('fRate').onclick = e => { const n = +e.target.dataset.n; if (n){ state.rating = n; renderRate(); } };
 
 window.openForm = async function(id){
@@ -557,6 +577,7 @@ window.openForm = async function(id){
   $('fNote').value = r?.note || '';
   state.formCat = r?.cat || CATEGORIES[0].id; renderFormCats();
   state.rating = r?.rating || 4; renderRate();
+  state.formVisited = r ? r.visited : true; renderVisit();
   $('fDel').style.visibility = r ? 'visible' : 'hidden';
   $('fDel').textContent = '刪除'; $('fDel').dataset.confirm = '';
   $('fErr').style.display = 'none';
@@ -569,7 +590,7 @@ $('form').onsubmit = async e => {
   e.preventDefault();
   const name = $('fName').value.trim();
   if (!name){ $('fErr').style.display = 'block'; $('fName').focus(); return; }
-  const data = { name, cat:state.formCat, rating:state.rating, addr:$('fAddr').value.trim(), note:$('fNote').value.trim() };
+  const data = { name, cat:state.formCat, visited:state.formVisited, rating:state.formVisited ? state.rating : null, addr:$('fAddr').value.trim(), note:$('fNote').value.trim() };
   const btn = $('form').querySelector('[type=submit]');
   btn.disabled = true; btn.textContent = '儲存中…';
   try {
@@ -578,6 +599,8 @@ $('form').onsubmit = async e => {
       : await store.add({ ...data, lat:state.pending.lat, lng:state.pending.lng }, auth.pin);
     closeForm();
     if (state.cat !== '全部' && state.cat !== saved.cat) state.cat = '全部';
+    if (state.visit !== 'all' && (state.visit === 'yes') !== saved.visited){ state.visit = 'all'; $('visitSel').value = 'all'; }
+    if (state.minRate && !(saved.visited && saved.rating >= state.minRate)){ state.minRate = 0; $('minRate').value = '0'; }
     render(); setActive(saved.id);
     toast('已儲存');
   } catch(err){ handleError(err); if (err.code === 'invalid_pin') closeForm(); }
@@ -600,9 +623,10 @@ document.addEventListener('keydown', e => {
 
 /* ---------- 側欄事件 ---------- */
 $('catSel').innerHTML = ['全部', ...CATEGORIES.map(c => c.id)].map(id => `<option value="${id}">${id === '全部' ? '全部分類' : id}</option>`).join('');
-$('legend').innerHTML = CATEGORIES.map(c => `<span><i class="dot" style="background:${c.color}"></i>${c.id}</span>`).join('');
+$('legend').innerHTML = CATEGORIES.map(c => `<span><i class="dot" style="background:${c.color}"></i>${c.id}</span>`).join('') + '<span><i class="ring"></i>空心＝想去</span>';
 $('catSel').onchange = e => { state.cat = e.target.value; render(); };
 $('q').oninput = e => { state.q = e.target.value; render(); };
+$('visitSel').onchange = e => { state.visit = e.target.value; render(); };
 $('minRate').onchange = e => { state.minRate = +e.target.value; render(); };
 $('list').onclick = e => {
   const it = e.target.closest('.item'); if (!it) return;
