@@ -386,8 +386,9 @@ const POI_GROUPS = {
   parks:    { label:'公園綠地',       layers:['parks-label'] },
   sights:   { label:'景點地標',       layers:['sights-label','worship-label'] },
   bike:     { label:'YouBike 站',     layers:['bike-dot','bike-label'] },
+  shops:    { label:'商店',           layers:['shops-dot','shops-label'] },
 };
-prefs.poi = Object.assign({ stations:true, parks:true, sights:true, bike:true }, prefs.poi);
+prefs.poi = Object.assign({ stations:true, parks:true, sights:true, bike:true, shops:true }, prefs.poi);
 
 function addPoiLayers(source, textFont, NAME){
   if (map.getLayer('stations-dot')) return;
@@ -418,6 +419,13 @@ function addPoiLayers(source, textFont, NAME){
   const bike = cls(['bicycle_rental']);
   dot('bike-dot', bike, 15, '#f2a900', ['interpolate',['linear'],['zoom'],15,3,18,5]);
   label('bike-label', bike, 17, '#9a6b00', [17,10,19,11], { 'text-offset':[0,0.8], 'text-anchor':'top' });
+
+  // 商店（含便利商店、超市、藥妝、書店等）：數量多，放大到街道等級才顯示
+  const shop = cls(['shop','grocery','convenience','supermarket','department_store','mall','clothing_store',
+    'shoes','books','gift','jewelry','electronics','mobile_phone','furniture','hardware','florist',
+    'pharmacy','optician','cosmetics','bakery','alcohol_shop','stationery','toys','sports','bicycle']);
+  dot('shops-dot', shop, 16, '#9aa1a9', ['interpolate',['linear'],['zoom'],16,2.5,19,4]);
+  label('shops-label', shop, 17, '#5f6670', [17,10,19,11], { 'text-offset':[0,0.8], 'text-anchor':'top' });
 }
 
 function applyPoiVisibility(){
