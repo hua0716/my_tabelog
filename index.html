@@ -52,9 +52,13 @@
   .rating{color:var(--ink);font-size:12px}
   .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:13px;line-height:1.8}
 
-  .gear{position:absolute;top:10px;left:10px;z-index:6;width:36px;height:36px;border-radius:8px;border:0;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.1);display:grid;place-items:center;cursor:pointer;color:#444}
-  .gear:hover,.gear.on{background:#f2f2f2}
-  .settings{position:absolute;top:54px;left:10px;z-index:6;background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;width:250px;display:none;flex-direction:column;gap:10px;font-size:13px;color:#555}
+  .gear,.zoom-btn{position:absolute;left:10px;z-index:6;width:36px;height:36px;border-radius:8px;border:0;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.1);display:grid;place-items:center;cursor:pointer;color:#444}
+  .gear{top:10px}
+  .zoom-in{top:54px}
+  .zoom-out{top:98px}
+  .gear:hover,.gear.on,.zoom-btn:hover{background:#f2f2f2}
+  .zoom-btn:active{background:#e9e9e9}
+  .settings{position:absolute;top:10px;left:54px;z-index:7;background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;width:250px;display:none;flex-direction:column;gap:10px;font-size:13px;color:#555}
   .settings.show{display:flex}
   .settings-title{font-weight:600;color:var(--ink);font-size:14px}
   .settings label{display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -169,6 +173,12 @@
     <div class="banner">點地圖上的位置來新增餐廳</div>
     <button class="gear" id="gear" title="設定" aria-label="設定">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button class="zoom-btn zoom-in" id="zoomIn" title="放大" aria-label="放大">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button class="zoom-btn zoom-out" id="zoomOut" title="縮小" aria-label="縮小">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14"/></svg>
     </button>
     <div class="settings" id="settings">
       <div class="settings-title">設定</div>
@@ -429,7 +439,6 @@ function createMap(view){
     localIdeographFontFamily: FONTS[prefs.font].map,
     attributionControl: { compact: true },
   });
-  map.addControl(new maplibregl.NavigationControl({ showCompass:false }), 'top-right');
   map.on('style.load', localizeLabels);
   map.on('click', e => {
     if (!state.adding) return;
@@ -703,6 +712,8 @@ function syncPoiOpts(){
   $('poiNote').style.display = vec ? 'none' : 'block';
 }
 syncPoiOpts();
+$('zoomIn').onclick = () => map && map.zoomIn({ duration:250 });
+$('zoomOut').onclick = () => map && map.zoomOut({ duration:250 });
 $('fontSel').value = prefs.font;
 $('baseSel').value = prefs.base;
 $('fontSel').onchange = e => setFont(e.target.value);
