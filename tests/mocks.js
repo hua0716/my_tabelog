@@ -49,7 +49,7 @@
     admin_list_editors:({p_pin}) => { const a = auth(p_pin); if (!a) return deny; if (!a.is_admin) return { ok:false, error:'not_admin' };
       return { ok:true, data: db.editors.map(({id,name,active,is_admin}) => ({id,name,active,is_admin})) }; },
     admin_add_editor:(p) => { const a = auth(p.p_pin); if (!a?.is_admin) return deny;
-      if (p.p_new_pin.length < 6) return { ok:false, error:'bad_pin' };
+      if (!p.p_new_pin || p.p_new_pin.length > 32) return { ok:false, error:'bad_pin' };
       if (db.editors.some(e => e.name === p.p_name)) return { ok:false, error:'name_taken' };
       if (db.editors.some(e => e.pin === p.p_new_pin)) return { ok:false, error:'pin_taken' };
       db.editors.push({ id:db.editors.length+1, name:p.p_name, pin:p.p_new_pin, active:true, is_admin:false }); return { ok:true }; },

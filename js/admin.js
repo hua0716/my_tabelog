@@ -6,7 +6,7 @@ import { auth, saveAuth, renderEditbar, handleError } from './auth.js';
 import { refresh } from './sync.js';
 
 const ADMIN_ERR = {
-  bad_name:'名字需為 1～20 個字', bad_pin:'PIN 需為 6～32 碼', name_taken:'這個名字已經有人用了',
+  bad_name:'名字需為 1～20 個字', bad_pin:'PIN 不能空白，最長 32 碼', name_taken:'這個名字已經有人用了',
   pin_taken:'這組 PIN 已經有人用了，請換一組', self:'不能停用自己', not_admin:'只有管理員可以使用這個功能',
   not_found:'找不到這位使用者，請重新整理',
 };
@@ -63,7 +63,7 @@ async function onListClick(e){
     document.querySelectorAll('.admin-edit').forEach(x => { if (x !== box) x.hidden = true; });
     box.hidden = false; box.dataset.mode = act;
     input.value = act === 'rename' ? ed.name : '';
-    input.placeholder = act === 'rename' ? '新的名字' : '新的 PIN（至少 6 碼）';
+    input.placeholder = act === 'rename' ? '新的名字' : '新的 PIN';
     input.inputMode = act === 'pin' ? 'numeric' : 'text';
     input.maxLength = act === 'rename' ? 20 : 32;
     input.focus(); input.select();
