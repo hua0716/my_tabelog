@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>台北美食地圖</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;600&family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+      onerror="this.onerror=null;this.href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css'">
+<style>
+  :root{
+    --bg:#fafaf9; --panel:#ffffff; --ink:#1f1f1f; --muted:#8c8c8c; --line:#ececec;
+    --hover:#f5f5f4; --radius:12px; --shadow:0 4px 20px rgba(0,0,0,.08);
+    --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:var(--font);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit;color:inherit}
+  .app{display:flex;height:100%}
+
+  /* 側欄 */
+  aside{width:340px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:5}
+  .head{padding:24px 20px 14px}
+  .title{margin:0;font-size:19px;font-weight:600;letter-spacing:.02em}
+  .demo-note{font-size:12px;color:var(--muted);margin:6px 0 18px;line-height:1.6}
+  .search{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);outline:none}
+  .search:focus{border-color:#bbb;background:#fff}
+  .filters{display:flex;gap:8px;margin-top:10px}
+  .filters label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .filters select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:#fff;font-size:13px;color:var(--ink)}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 10px}
+  .legend span{display:inline-flex;align-items:center;gap:4px}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 11px;font-size:13px;cursor:pointer;color:#555}
+  .chip:hover{border-color:#ccc}
+  .chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;display:inline-block}
+  .row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:12px;color:var(--muted)}
+  .row select{border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:#fff;font-size:12px}
+
+  .list{flex:1;overflow-y:auto;padding:4px 10px;border-top:1px solid var(--line)}
+  .item{display:flex;gap:12px;align-items:flex-start;padding:12px 10px;border-radius:10px;cursor:pointer}
+  .item:hover{background:var(--hover)}
+  .item.active{background:#f0f0ef}
+  .item .dot{margin-top:7px;width:10px;height:10px}
+  .item h3{margin:0;font-size:14px;font-weight:500}
+  .item .meta{font-size:12px;color:var(--muted);margin-top:3px}
+  .rating{color:var(--ink);font-size:12px}
+  .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:13px;line-height:1.8}
+
+  .gear{position:absolute;top:10px;left:10px;z-index:6;width:36px;height:36px;border-radius:8px;border:0;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.1);display:grid;place-items:center;cursor:pointer;color:#444}
+  .gear:hover,.gear.on{background:#f2f2f2}
+  .settings{position:absolute;top:54px;left:10px;z-index:6;background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;width:250px;display:none;flex-direction:column;gap:10px;font-size:13px;color:#555}
+  .settings.show{display:flex}
+  .settings-title{font-weight:600;color:var(--ink);font-size:14px}
+  .settings label{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .settings select{border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:#fff;font-size:12px;max-width:150px}
+
+  /* 地圖 */
+  main{flex:1;position:relative}
+  #map{position:absolute;inset:0}
+  .fab{position:absolute;right:20px;bottom:32px;z-index:5;background:var(--ink);color:#fff;border:0;border-radius:999px;padding:12px 20px;font-weight:500;box-shadow:var(--shadow);cursor:pointer;font-size:14px}
+  .fab.cancel{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .banner{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:5;background:#fff;color:var(--ink);padding:9px 18px;border-radius:999px;font-size:13px;box-shadow:var(--shadow);display:none}
+  .adding .maplibregl-canvas-container{cursor:crosshair}
+  .adding .banner{display:block}
+  .toggle-list{display:none}
+
+  /* 標記 */
+  .marker{width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);cursor:pointer;transition:transform .15s}
+  .marker:hover{transform:scale(1.25)}
+  .marker.active{transform:scale(1.45);box-shadow:0 0 0 4px rgba(0,0,0,.12),0 1px 4px rgba(0,0,0,.3)}
+
+  .maplibregl-popup-content{border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);font-family:var(--font)}
+  .maplibregl-popup-close-button{font-size:18px;color:var(--muted);padding:2px 8px}
+  .pop{min-width:210px}
+  .pop h3{margin:0 0 4px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;padding-right:14px}
+  .pop .meta{font-size:12px;color:var(--muted)}
+  .pop p{margin:8px 0;font-size:13px;line-height:1.6;color:#444}
+  .pop .actions{display:flex;gap:6px;margin-top:12px}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer;text-decoration:none;color:var(--ink)}
+  .btn:hover{border-color:#ccc}
+  .btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+  .btn.danger{color:#c0392b}
+
+  /* 表單 */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
+  .overlay.show{display:flex}
+  .modal{background:#fff;border-radius:16px;width:100%;max-width:400px;padding:24px;box-shadow:var(--shadow);max-height:90vh;overflow-y:auto}
+  .modal h2{margin:0 0 18px;font-size:17px;font-weight:600}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .field input,.field textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;outline:none;background:#fff}
+  .field input:focus,.field textarea:focus{border-color:#bbb}
+  .field textarea{resize:vertical;min-height:70px}
+  .cat-pick{display:flex;flex-wrap:wrap;gap:6px}
+  .cat-pick button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer}
+  .cat-pick button.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  .rate{display:flex;gap:2px}
+  .rate button{border:0;background:none;font-size:22px;cursor:pointer;color:#ddd;padding:0 2px}
+  .rate button.on{color:var(--ink)}
+  .modal .foot{display:flex;gap:8px;margin-top:8px}
+  .modal .foot .right{display:flex;gap:8px;margin-left:auto}
+  .modal .btn{padding:8px 16px;font-size:13px}
+  .err{color:#c0392b;font-size:12px;margin:-8px 0 10px;display:none}
+
+  .editbar{font-size:12px;color:var(--muted);margin:8px 0 16px;display:flex;align-items:center;gap:6px;min-height:20px}
+  .editbar b{color:var(--ink);font-weight:500}
+  .link{border:0;background:none;padding:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-size:12px}
+  .pin-modal{max-width:320px}
+  .pin-hint{font-size:12px;color:var(--muted);margin:-8px 0 14px;line-height:1.6}
+  #pinInput{font-size:18px;letter-spacing:.3em;text-align:center}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:200;opacity:0;pointer-events:none;transition:all .25s;max-width:90vw}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .load-error{height:100%;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted);line-height:1.8;font-size:14px}
+
+  @media (max-width:760px){
+    aside{position:absolute;left:0;right:0;bottom:0;width:auto;height:60%;border-right:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:var(--shadow);transform:translateY(100%);transition:transform .25s}
+    .app.list-open aside{transform:none}
+    .toggle-list{display:block;position:absolute;left:20px;bottom:32px;z-index:5;background:#fff;border:1px solid var(--line);border-radius:999px;padding:12px 18px;font-size:14px;box-shadow:var(--shadow);cursor:pointer}
+    .app.list-open .toggle-list,.app.list-open .fab{display:none}
+    main{position:absolute;inset:0}
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside>
+    <div class="head">
+      <h1 class="title">台北美食地圖</h1>
+      <div class="editbar" id="editbar"></div>
+      <input id="q" class="search" type="search" placeholder="搜尋餐廳名稱或備註">
+      <div class="filters">
+        <label>分類
+          <select id="catSel"></select>
+        </label>
+        <label>評分
+          <select id="minRate">
+            <option value="0">不限</option><option value="3">3 以上</option>
+            <option value="4">4 以上</option><option value="5">5</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+
+  <main>
+    <div id="map"></div>
+    <div class="banner">點地圖上的位置來新增餐廳</div>
+    <button class="gear" id="gear" title="設定" aria-label="設定">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <div class="settings" id="settings">
+      <div class="settings-title">設定</div>
+      <label>字體
+        <select id="fontSel">
+          <option value="sans">黑體（思源黑體）</option>
+          <option value="serif">明體（思源宋體）</option>
+          <option value="kai">楷體（霞鶩文楷）</option>
+        </select>
+      </label>
+      <label>底圖
+        <select id="baseSel">
+          <option value="liberty">彩色（可改字體）</option>
+          <option value="positron">灰白簡約（可改字體）</option>
+          <option value="emap">臺灣通用電子地圖（字體固定）</option>
+          <option value="photo">衛星影像</option>
+        </select>
+      </label>
+    </div>
+    <button class="toggle-list" id="toggleList">餐廳列表</button>
+    <button class="fab" id="fab">＋ 新增餐廳</button>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <form class="modal" id="form" autocomplete="off">
+    <h2 id="formTitle">新增餐廳</h2>
+    <div class="field"><label>餐廳名稱</label><input id="fName" maxlength="60"></div>
+    <div class="err" id="fErr">請填寫餐廳名稱</div>
+    <div class="field"><label>類別</label><div class="cat-pick" id="fCat"></div></div>
+    <div class="field"><label>評分</label><div class="rate" id="fRate"></div></div>
+    <div class="field"><label>地址（選填）</label><input id="fAddr" maxlength="120"></div>
+    <div class="field"><label>備註／推薦菜色</label><textarea id="fNote" maxlength="500"></textarea></div>
+    <div class="foot">
+      <button type="button" class="btn danger" id="fDel">刪除</button>
+      <div class="right">
+        <button type="button" class="btn" id="fCancel">取消</button>
+        <button type="submit" class="btn primary">儲存</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="overlay" id="pinOverlay">
+  <form class="modal pin-modal" id="pinForm" autocomplete="off">
+    <h2>輸入 PIN 以編輯</h2>
+    <p class="pin-hint">編輯者請輸入自己的 PIN。輸入一次後，這台裝置會記住。</p>
+    <div class="field"><input id="pinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="32" placeholder="PIN"></div>
+    <div class="err" id="pinErr"></div>
+    <div class="foot"><div class="right">
+      <button type="button" class="btn" id="pinCancel">取消</button>
+      <button type="submit" class="btn primary" id="pinOk">解鎖</button>
+    </div></div>
+  </form>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= Supabase 連線資訊（publishable key 本來就是公開的） ================= */
+const SUPABASE_URL = 'https://qzferamjocllevbryrqi.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_NU-KikhtYb-ZsfdIEQR9xg_xiiPk4ag';
+
+/* ================= 設定 ================= */
+const CATEGORIES = [
+  { id:'台式',   color:'#e8590c' },
+  { id:'日式',   color:'#1c7ed6' },
+  { id:'東南亞', color:'#2b8a3e' },
+  { id:'西式',   color:'#6741d9' },
+  { id:'甜點',   color:'#d6336c' },
+  { id:'咖啡廳', color:'#8d5a3b' },
+  { id:'其他',   color:'#868e96' },
+];
+const catOf = id => CATEGORIES.find(c => c.id === id) || { id, color:'#868e96' };
+
+// 字體：介面用網路字型；地圖上的中文用電腦已安裝的字型優先（比較穩定），網路字型備用
+const FONTS = {
+  sans:  { ui:'"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif',
+           map:'"PingFang TC","Microsoft JhengHei","Noto Sans TC","Noto Sans CJK TC",sans-serif' },
+  serif: { ui:'"Noto Serif TC","Songti TC","PMingLiU",serif',
+           map:'"Noto Serif TC","Songti TC","PMingLiU","MingLiU","Noto Serif CJK TC",serif' },
+  kai:   { ui:'"LXGW WenKai TC","Kaiti TC","DFKai-SB",serif',
+           map:'"LXGW WenKai TC","Kaiti TC","BiauKai","DFKai-SB","KaiTi",serif' },
+};
+
+const VECTOR_BASES = ['liberty', 'positron'];
+const BASEMAPS = {
+  liberty:  'https://tiles.openfreemap.org/styles/liberty',
+  positron: 'https://tiles.openfreemap.org/styles/positron',
+  emap:  rasterStyle('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', '© 內政部國土測繪中心'),
+  photo: rasterStyle('https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}', '© 內政部國土測繪中心'),
+};
+function rasterStyle(url, attribution){
+  return { version:8, sources:{ base:{ type:'raster', tiles:[url], tileSize:256, maxzoom:19, attribution } },
+           layers:[{ id:'base', type:'raster', source:'base' }] };
+}
+
+/* ================= 偏好設定（記在瀏覽器） ================= */
+const prefs = (() => { try { return JSON.parse(localStorage.getItem('tfm-prefs')) || {}; } catch(e){ return {}; } })();
+prefs.font = FONTS[prefs.font] ? prefs.font : 'sans';
+prefs.base = BASEMAPS[prefs.base] && prefs.v === 3 ? prefs.base : 'liberty';
+prefs.v = 3;
+const savePrefs = () => { try { localStorage.setItem('tfm-prefs', JSON.stringify(prefs)); } catch(e){} };
+
+/* ================= 資料層：Supabase ================= */
+let sb;
+const norm = r => ({ ...r, addr: r.addr || '', note: r.note || '', by: r.created_by });
+const store = {
+  _items: [],
+  init(){ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } }); },
+  async load(){
+    const { data, error } = await sb.from('restaurants').select('*').order('created_at', { ascending:false });
+    if (error) throw error;
+    this._items = data.map(norm);
+  },
+  all(){ return this._items; },
+  async _rpc(fn, args){
+    const { data, error } = await sb.rpc(fn, args);
+    if (error) throw error;
+    if (!data?.ok){ const e = new Error(data?.error || 'unknown'); e.code = data?.error; throw e; }
+    return data;
+  },
+  async verify(pin){ return (await this._rpc('verify_pin', { p_pin:pin })).name; },
+  async add(r, pin){
+    const d = await this._rpc('add_restaurant', { p_pin:pin, p_name:r.name, p_cat:r.cat, p_rating:r.rating,
+      p_lat:r.lat, p_lng:r.lng, p_addr:r.addr, p_note:r.note });
+    const it = norm(d.data); this._items.unshift(it); return it;
+  },
+  async update(id, r, pin){
+    const d = await this._rpc('update_restaurant', { p_pin:pin, p_id:id, p_name:r.name, p_cat:r.cat,
+      p_rating:r.rating, p_addr:r.addr, p_note:r.note });
+    const it = norm(d.data); this._items = this._items.map(x => x.id === id ? it : x); return it;
+  },
+  async remove(id, pin){
+    await this._rpc('delete_restaurant', { p_pin:pin, p_id:id });
+    this._items = this._items.filter(x => x.id !== id);
+  },
+};
+
+/* ================= 載入地圖程式庫 ================= */
+(function loadLibs(){
+  const libs = [
+    { ok:() => window.maplibregl, name:'地圖程式庫', srcs:[
+      'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js',
+      'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'] },
+    { ok:() => window.supabase?.createClient, name:'資料庫程式庫', srcs:[
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js',
+      'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'] },
+  ];
+  let li = 0, si = 0;
+  (function next(){
+    if (li >= libs.length) return startApp();
+    const lib = libs[li];
+    if (lib.ok()){ li++; si = 0; return next(); }
+    if (si >= lib.srcs.length) return showLoadError(lib.name + '載入失敗');
+    const s = document.createElement('script');
+    s.src = lib.srcs[si++];
+    s.onload = next; s.onerror = next;
+    document.head.appendChild(s);
+  })();
+})();
+
+function showLoadError(title){
+  document.getElementById('map').innerHTML = `<div class="load-error"><div><b style="color:#1f1f1f">${title}</b><br>
+    請把 index.html 下載到電腦，用 Chrome、Edge 或 Safari 直接打開，並確認有連上網路。<br>
+    （在 Claude 對話裡的預覽視窗中無法載入外部地圖。）</div></div>`;
+  document.getElementById('fab').style.display = 'none';
+}
+
+/* ================= 主程式 ================= */
+function startApp(){
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ratingText = n => '★'.repeat(n) + '<span style="color:#ddd">' + '★'.repeat(5-n) + '</span>';
+
+const state = { cat:'全部', q:'', minRate:0, adding:false, activeId:null, editing:null, pending:null, rating:4, formCat:CATEGORIES[0].id };
+let map, markers = {};
+
+/* ---------- 地圖 ---------- */
+function localizeLabels(){
+  // 讓向量地圖優先顯示中文地名，並隱藏地圖原有的店家／地標，避免和餐廳標記混在一起
+  if (!VECTOR_BASES.includes(prefs.base)) return;
+  const NAME = ['coalesce', ['get','name:zh-Hant'], ['get','name:zh'], ['get','name'], ['get','name:latin']];
+  let poiSource = null, textFont = null;
+  for (const layer of map.getStyle().layers){
+    if (layer.type !== 'symbol') continue;
+    if (!textFont && layer.layout?.['text-font']) textFont = layer.layout['text-font'];
+    if (layer['source-layer'] === 'poi'){ poiSource = layer.source; map.setLayoutProperty(layer.id, 'visibility', 'none'); continue; }
+    const tf = map.getLayoutProperty(layer.id, 'text-field');
+    if (tf && JSON.stringify(tf).includes('name')) map.setLayoutProperty(layer.id, 'text-field', NAME);
+  }
+  addStations(poiSource || 'openmaptiles', textFont || ['Noto Sans Regular'], NAME);
+}
+
+// 只把捷運站／火車站顯示回來（不含出入口）
+function addStations(source, textFont, NAME){
+  if (!map.getSource(source) || map.getLayer('stations-dot')) return;
+  const filter = ['all',
+    ['==', ['get','class'], 'railway'],
+    ['!', ['in', ['get','subclass'], ['literal', ['subway_entrance','train_station_entrance','platform']]]]];
+  map.addLayer({ id:'stations-dot', type:'circle', source, 'source-layer':'poi', minzoom:12, filter,
+    paint:{ 'circle-radius':['interpolate',['linear'],['zoom'],12,3,16,5.5], 'circle-color':'#0b6fb8',
+            'circle-stroke-color':'#fff', 'circle-stroke-width':1.5 } });
+  map.addLayer({ id:'stations-label', type:'symbol', source, 'source-layer':'poi', minzoom:13, filter,
+    layout:{ 'text-field':NAME, 'text-font':textFont, 'text-size':['interpolate',['linear'],['zoom'],13,11,17,13],
+             'text-offset':[0,0.9], 'text-anchor':'top', 'text-optional':true },
+    paint:{ 'text-color':'#0b4f86', 'text-halo-color':'#fff', 'text-halo-width':1.5 } });
+}
+
+function createMap(view){
+  if (map){ view = { center: map.getCenter(), zoom: map.getZoom() }; map.remove(); }
+  map = new maplibregl.Map({
+    container: 'map',
+    style: BASEMAPS[prefs.base],
+    center: view?.center || [121.535, 25.045],
+    zoom: view?.zoom ?? 12.6,
+    localIdeographFontFamily: FONTS[prefs.font].map,
+    attributionControl: { compact: true },
+  });
+  map.addControl(new maplibregl.NavigationControl({ showCompass:false }), 'top-right');
+  map.on('style.load', localizeLabels);
+  map.on('click', e => {
+    if (!state.adding) return;
+    state.pending = e.lngLat;
+    setAdding(false);
+    openForm(null);
+  });
+  map.on('error', e => console.warn('地圖錯誤：', e?.error?.message || e));
+  markers = {};
+  renderMarkers();
+}
+
+function setFont(key){
+  prefs.font = key; savePrefs();
+  document.documentElement.style.setProperty('--font', FONTS[key].ui);
+  // 地圖上的中文字型只能在建立地圖時設定，所以要重建地圖
+  const ready = document.fonts?.load ? document.fonts.load(`16px ${FONTS[key].ui}`, '臺北市中山區大安信義士林萬華松山') : Promise.resolve();
+  ready.catch(()=>{}).finally(() => { if (map) createMap(); });
+}
+
+function setBase(key){
+  prefs.base = key; savePrefs();
+  map.setStyle(BASEMAPS[key]);
+}
+
+/* ---------- 篩選與繪製 ---------- */
+function filtered(){
+  const q = state.q.trim().toLowerCase();
+  return store.all().filter(r =>
+    (state.cat === '全部' || r.cat === state.cat) &&
+    r.rating >= state.minRate &&
+    (!q || (r.name + ' ' + (r.note||'') + ' ' + (r.addr||'')).toLowerCase().includes(q)));
+}
+
+function popupHtml(r){
+  const c = catOf(r.cat);
+  const gmap = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name.replace(/^範例・/,'') + ' ' + (r.addr||''))}`;
+  return `<div class="pop">
+    <h3><span class="dot" style="background:${c.color}"></span>${esc(r.name)}</h3>
+    <div class="meta"><span class="rating">${ratingText(r.rating)}</span>　${esc(r.cat)}${r.addr ? '・'+esc(r.addr) : ''}</div>
+    ${r.note ? `<p>${esc(r.note)}</p>` : ''}
+    <div class="meta">由 ${esc(r.by)} 新增${r.updated_by && r.updated_by !== r.by ? `・${esc(r.updated_by)} 編輯過` : ''}</div>
+    <div class="actions">
+      <button class="btn primary" onclick="openForm('${r.id}')">編輯</button>
+      <a class="btn" href="${gmap}" target="_blank" rel="noopener">Google 地圖</a>
+    </div></div>`;
+}
+
+function renderMarkers(){
+  Object.values(markers).forEach(m => m.remove());
+  markers = {};
+  filtered().forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'marker' + (state.activeId === r.id ? ' active' : '');
+    el.style.background = catOf(r.cat).color;
+    el.title = r.name;
+    el.addEventListener('click', ev => { ev.stopPropagation(); if (!state.adding) setActive(r.id, false); });
+    const popup = new maplibregl.Popup({ offset:12, maxWidth:'280px' }).setHTML(popupHtml(r));
+    markers[r.id] = new maplibregl.Marker({ element:el }).setLngLat([r.lng, r.lat]).setPopup(popup).addTo(map);
+  });
+}
+
+function render(){
+  $('catSel').value = state.cat;
+
+  const items = filtered();
+  $('list').innerHTML = items.length ? items.map(r => `
+    <div class="item ${state.activeId===r.id?'active':''}" data-id="${r.id}">
+      <span class="dot" style="background:${catOf(r.cat).color}"></span>
+      <div><h3>${esc(r.name)}</h3>
+        <div class="meta"><span class="rating">${ratingText(r.rating)}</span>　${esc(r.cat)}${r.addr ? '・'+esc(r.addr) : ''}</div>
+      </div>
+    </div>`).join('') : `<div class="empty">${store.all().length ? '沒有符合條件的餐廳<br>試試其他篩選條件' : '還沒有任何餐廳<br>輸入 PIN 後，點「＋ 新增餐廳」開始標記'}</div>`;
+  renderMarkers();
+}
+
+function setActive(id, fly = true){
+  state.activeId = id;
+  document.querySelectorAll('.item').forEach(el => el.classList.toggle('active', el.dataset.id === id));
+  Object.entries(markers).forEach(([k,m]) => m.getElement().classList.toggle('active', k === id));
+  const m = markers[id];
+  if (m && fly){
+    Object.values(markers).forEach(x => x.getPopup().isOpen() && x.togglePopup());
+    map.flyTo({ center: m.getLngLat(), zoom: Math.max(map.getZoom(), 15.5), duration: 700 });
+    map.once('moveend', () => { if (!m.getPopup().isOpen()) m.togglePopup(); });
+  }
+  const el = document.querySelector(`.item[data-id="${id}"]`);
+  if (el) el.scrollIntoView({ block:'nearest', behavior:'smooth' });
+}
+
+/* ---------- 提示訊息 ---------- */
+let toastTimer;
+function toast(msg){
+  $('toast').textContent = msg; $('toast').classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('show'), 3200);
+}
+
+/* ---------- PIN 解鎖 ---------- */
+const auth = { pin:null, name:null };
+try { const saved = JSON.parse(localStorage.getItem('tfm-auth')); if (saved?.pin) Object.assign(auth, saved); } catch(e){}
+function saveAuth(){ try { auth.pin ? localStorage.setItem('tfm-auth', JSON.stringify(auth)) : localStorage.removeItem('tfm-auth'); } catch(e){} }
+function lock(){ auth.pin = null; auth.name = null; saveAuth(); renderEditbar(); }
+function renderEditbar(){
+  $('editbar').innerHTML = auth.pin
+    ? `已解鎖編輯：<b>${esc(auth.name)}</b>　<button class="link" data-act="lock">鎖定</button>`
+    : `<button class="link" data-act="unlock">輸入 PIN 以編輯</button>`;
+}
+$('editbar').onclick = e => {
+  const act = e.target.dataset?.act;
+  if (act === 'lock'){ lock(); toast('已鎖定'); }
+  if (act === 'unlock') requirePin();
+};
+
+let pinResolve = null;
+function requirePin(){
+  if (auth.pin) return Promise.resolve(true);
+  $('pinInput').value = ''; $('pinErr').style.display = 'none';
+  $('pinOverlay').classList.add('show');
+  setTimeout(() => $('pinInput').focus(), 50);
+  return new Promise(res => { pinResolve = res; });
+}
+function closePin(ok){ $('pinOverlay').classList.remove('show'); if (pinResolve){ pinResolve(ok); pinResolve = null; } }
+$('pinForm').onsubmit = async e => {
+  e.preventDefault();
+  const pin = $('pinInput').value.trim();
+  if (!pin) return;
+  $('pinOk').disabled = true;
+  try {
+    const name = await store.verify(pin);
+    auth.pin = pin; auth.name = name; saveAuth(); renderEditbar();
+    toast(`歡迎，${name}！`);
+    closePin(true);
+  } catch(err){
+    $('pinErr').textContent = err.code === 'locked' ? '嘗試次數過多，請 10 分鐘後再試' :
+                              err.code === 'invalid_pin' ? 'PIN 不正確' : '連線失敗，請稍後再試';
+    $('pinErr').style.display = 'block';
+    $('pinInput').select();
+  } finally { $('pinOk').disabled = false; }
+};
+$('pinCancel').onclick = () => closePin(false);
+$('pinOverlay').onclick = e => { if (e.target === $('pinOverlay')) closePin(false); };
+
+function handleError(err){
+  console.warn(err);
+  if (err.code === 'invalid_pin'){ lock(); toast('PIN 已失效，請重新輸入'); }
+  else if (err.code === 'locked') toast('嘗試次數過多，請 10 分鐘後再試');
+  else if (err.code === 'not_found') toast('這家餐廳已經被別人刪除了');
+  else toast('儲存失敗，請檢查網路後再試');
+}
+
+/* ---------- 新增模式 ---------- */
+function setAdding(on){
+  state.adding = on;
+  $('app').classList.toggle('adding', on);
+  $('fab').textContent = on ? '取消' : '＋ 新增餐廳';
+  $('fab').classList.toggle('cancel', on);
+}
+$('fab').onclick = async () => {
+  $('app').classList.remove('list-open');
+  if (state.adding) return setAdding(false);
+  if (await requirePin()) setAdding(true);
+};
+
+/* ---------- 表單 ---------- */
+function renderFormCats(){
+  $('fCat').innerHTML = CATEGORIES.map(c =>
+    `<button type="button" data-cat="${c.id}" class="${state.formCat===c.id?'on':''}"><span class="dot" style="background:${c.color}"></span>${c.id}</button>`).join('');
+}
+$('fCat').onclick = e => { const b = e.target.closest('button'); if (b){ state.formCat = b.dataset.cat; renderFormCats(); } };
+function renderRate(){
+  $('fRate').innerHTML = [1,2,3,4,5].map(n => `<button type="button" data-n="${n}" class="${n<=state.rating?'on':''}">★</button>`).join('');
+}
+$('fRate').onclick = e => { const n = +e.target.dataset.n; if (n){ state.rating = n; renderRate(); } };
+
+window.openForm = async function(id){
+  Object.values(markers).forEach(x => x.getPopup().isOpen() && x.togglePopup());
+  if (!(await requirePin())) return;
+  const r = id ? store.all().find(x => x.id === id) : null;
+  state.editing = r;
+  $('formTitle').textContent = r ? '編輯餐廳' : '新增餐廳';
+  $('fName').value = r?.name || '';
+  $('fAddr').value = r?.addr || '';
+  $('fNote').value = r?.note || '';
+  state.formCat = r?.cat || CATEGORIES[0].id; renderFormCats();
+  state.rating = r?.rating || 4; renderRate();
+  $('fDel').style.visibility = r ? 'visible' : 'hidden';
+  $('fDel').textContent = '刪除'; $('fDel').dataset.confirm = '';
+  $('fErr').style.display = 'none';
+  $('overlay').classList.add('show');
+  setTimeout(() => $('fName').focus(), 50);
+};
+function closeForm(){ $('overlay').classList.remove('show'); state.editing = null; state.pending = null; }
+
+$('form').onsubmit = async e => {
+  e.preventDefault();
+  const name = $('fName').value.trim();
+  if (!name){ $('fErr').style.display = 'block'; $('fName').focus(); return; }
+  const data = { name, cat:state.formCat, rating:state.rating, addr:$('fAddr').value.trim(), note:$('fNote').value.trim() };
+  const btn = $('form').querySelector('[type=submit]');
+  btn.disabled = true; btn.textContent = '儲存中…';
+  try {
+    const saved = state.editing
+      ? await store.update(state.editing.id, data, auth.pin)
+      : await store.add({ ...data, lat:state.pending.lat, lng:state.pending.lng }, auth.pin);
+    closeForm();
+    if (state.cat !== '全部' && state.cat !== saved.cat) state.cat = '全部';
+    render(); setActive(saved.id);
+    toast('已儲存');
+  } catch(err){ handleError(err); if (err.code === 'invalid_pin') closeForm(); }
+  finally { btn.disabled = false; btn.textContent = '儲存'; }
+};
+$('fCancel').onclick = closeForm;
+$('overlay').onclick = e => { if (e.target === $('overlay')) closeForm(); };
+$('fDel').onclick = async () => {
+  const b = $('fDel');
+  if (!b.dataset.confirm){ b.dataset.confirm = '1'; b.textContent = '確定刪除？'; return; }
+  try { await store.remove(state.editing.id, auth.pin); closeForm(); state.activeId = null; render(); toast('已刪除'); }
+  catch(err){ handleError(err); closeForm(); }
+};
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('pinOverlay').classList.contains('show')) closePin(false);
+  else if ($('overlay').classList.contains('show')) closeForm();
+  else if (state.adding) setAdding(false);
+});
+
+/* ---------- 側欄事件 ---------- */
+$('catSel').innerHTML = ['全部', ...CATEGORIES.map(c => c.id)].map(id => `<option value="${id}">${id === '全部' ? '全部分類' : id}</option>`).join('');
+$('legend').innerHTML = CATEGORIES.map(c => `<span><i class="dot" style="background:${c.color}"></i>${c.id}</span>`).join('');
+$('catSel').onchange = e => { state.cat = e.target.value; render(); };
+$('q').oninput = e => { state.q = e.target.value; render(); };
+$('minRate').onchange = e => { state.minRate = +e.target.value; render(); };
+$('list').onclick = e => {
+  const it = e.target.closest('.item'); if (!it) return;
+  $('app').classList.remove('list-open');
+  setActive(it.dataset.id);
+};
+$('toggleList').onclick = () => $('app').classList.add('list-open');
+$('gear').onclick = e => { e.stopPropagation(); $('settings').classList.toggle('show'); $('gear').classList.toggle('on'); };
+$('settings').onclick = e => e.stopPropagation();
+document.addEventListener('click', () => { $('settings').classList.remove('show'); $('gear').classList.remove('on'); });
+$('fontSel').value = prefs.font;
+$('baseSel').value = prefs.base;
+$('fontSel').onchange = e => setFont(e.target.value);
+$('baseSel').onchange = e => setBase(e.target.value);
+
+/* ---------- 啟動 ---------- */
+document.documentElement.style.setProperty('--font', FONTS[prefs.font].ui);
+renderEditbar();
+store.init();
+async function refresh(){
+  try { await store.load(); render(); }
+  catch(err){ console.warn(err); toast('讀取資料失敗，請檢查網路後重新整理'); }
+}
+const fontReady = document.fonts?.load ? document.fonts.load(`16px ${FONTS[prefs.font].ui}`, '臺北市中山區') : Promise.resolve();
+fontReady.catch(()=>{}).finally(() => { createMap(); render(); refresh(); });
+// 切回這個分頁時自動更新，看到別人新增的餐廳
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !$('overlay').classList.contains('show')) refresh();
+});
+} // end startApp
+</script>
+</body>
+</html>
