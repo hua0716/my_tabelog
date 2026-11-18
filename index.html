@@ -31,7 +31,6 @@
   .filters select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:#fff;font-size:13px;color:var(--ink)}
   .legend{display:flex;flex-wrap:wrap;gap:4px 10px}
   .legend span{display:inline-flex;align-items:center;gap:4px}
-  .ring{width:9px;height:9px;border-radius:50%;border:2px solid #888;box-sizing:border-box;display:inline-block}
   .tag-want{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 7px;color:#666;line-height:18px}
   .seg{display:flex;border:1px solid var(--line);border-radius:999px;padding:2px;width:max-content}
   .seg button{border:0;background:none;border-radius:999px;padding:5px 14px;font-size:13px;cursor:pointer;color:#666}
@@ -633,7 +632,7 @@ document.addEventListener('keydown', e => {
 
 /* ---------- 側欄事件 ---------- */
 $('catSel').innerHTML = ['全部', ...CATEGORIES.map(c => c.id)].map(id => `<option value="${id}">${id === '全部' ? '全部分類' : id}</option>`).join('');
-$('legend').innerHTML = CATEGORIES.map(c => `<span><i class="dot" style="background:${c.color}"></i>${c.id}</span>`).join('') + '<span><i class="ring"></i>空心＝未探訪</span>';
+$('legend').innerHTML = CATEGORIES.map(c => `<span><i class="dot" style="background:${c.color}"></i>${c.id}</span>`).join('');
 $('catSel').onchange = e => { state.cat = e.target.value; render(); };
 $('q').oninput = e => { state.q = e.target.value; render(); };
 $('visitSel').onchange = e => { state.visit = e.target.value; render(); };
