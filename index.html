@@ -554,12 +554,12 @@ function saveAuth(){ try { auth.pin ? localStorage.setItem('tfm-auth', JSON.stri
 function lock(){ auth.pin = null; auth.name = null; saveAuth(); renderEditbar(); }
 function renderEditbar(){
   $('editbar').innerHTML = auth.pin
-    ? `已解鎖編輯：<b>${esc(auth.name)}</b>　<button class="link" data-act="lock">鎖定</button>`
+    ? `已解鎖編輯：<b>${esc(auth.name)}</b>　<button class="link" data-act="lock">登出</button>`
     : `<button class="link" data-act="unlock">輸入 PIN 以編輯</button>`;
 }
 $('editbar').onclick = e => {
   const act = e.target.dataset?.act;
-  if (act === 'lock'){ lock(); toast('已鎖定'); }
+  if (act === 'lock'){ lock(); toast('已登出'); }
   if (act === 'unlock') requirePin();
 };
 
