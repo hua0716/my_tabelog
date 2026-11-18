@@ -58,6 +58,12 @@
   .settings.show{display:flex}
   .settings-title{font-weight:600;color:var(--ink);font-size:14px}
   .settings label{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .settings-sub{font-weight:600;color:var(--ink);font-size:13px;margin-top:4px;padding-top:10px;border-top:1px solid var(--line)}
+  .poi-opts{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+  .poi-opts label{justify-content:flex-start;gap:6px;cursor:pointer;font-size:12px}
+  .poi-opts input{margin:0;accent-color:var(--ink)}
+  .poi-opts.disabled{opacity:.4;pointer-events:none}
+  .poi-note{font-size:11px;color:var(--muted);display:none}
   .settings select{border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:#fff;font-size:12px;max-width:150px}
 
   /* 地圖 */
@@ -181,6 +187,9 @@
           <option value="photo">衛星影像</option>
         </select>
       </label>
+      <div class="settings-sub">地圖顯示</div>
+      <div class="poi-opts" id="poiOpts"></div>
+      <div class="poi-note" id="poiNote">「臺灣通用電子地圖」和「衛星影像」無法調整顯示項目</div>
     </div>
     <button class="toggle-list" id="toggleList">餐廳列表</button>
     <button class="fab" id="fab">＋ 新增餐廳</button>
@@ -345,7 +354,7 @@ let map, markers = {};
 
 /* ---------- 地圖 ---------- */
 function localizeLabels(){
-  // 讓向量地圖優先顯示中文地名，並隱藏地圖原有的店家／地標，避免和餐廳標記混在一起
+  // 讓向量地圖優先顯示中文地名；隱藏地圖原有的地點標示，改用下面可勾選的圖層
   if (!VECTOR_BASES.includes(prefs.base)) return;
   const NAME = ['coalesce', ['get','name:zh-Hant'], ['get','name:zh'], ['get','name'], ['get','name:latin']];
   let poiSource = null, textFont = null;
@@ -356,22 +365,58 @@ function localizeLabels(){
     const tf = map.getLayoutProperty(layer.id, 'text-field');
     if (tf && JSON.stringify(tf).includes('name')) map.setLayoutProperty(layer.id, 'text-field', NAME);
   }
-  addStations(poiSource || 'openmaptiles', textFont || ['Noto Sans Regular'], NAME);
+  const vecSource = poiSource || Object.entries(map.getStyle().sources).find(([,v]) => v.type === 'vector')?.[0];
+  if (vecSource) addPoiLayers(vecSource, textFont || ['Noto Sans Regular'], NAME);
+  applyPoiVisibility();
 }
 
-// 只把捷運站／火車站顯示回來（不含出入口）
-function addStations(source, textFont, NAME){
-  if (!map.getSource(source) || map.getLayer('stations-dot')) return;
-  const filter = ['all',
-    ['==', ['get','class'], 'railway'],
+// 地圖上可勾選顯示的地點（資料來自 OpenStreetMap）
+const POI_GROUPS = {
+  stations: { label:'捷運站／火車站', layers:['stations-dot','stations-label'] },
+  parks:    { label:'公園綠地',       layers:['parks-label'] },
+  sights:   { label:'景點地標',       layers:['sights-label','worship-label'] },
+  bike:     { label:'YouBike 站',     layers:['bike-dot','bike-label'] },
+};
+prefs.poi = Object.assign({ stations:true, parks:true, sights:true, bike:true }, prefs.poi);
+
+function addPoiLayers(source, textFont, NAME){
+  if (map.getLayer('stations-dot')) return;
+  const cls = list => ['in', ['get','class'], ['literal', list]];
+  const label = (id, filter, minzoom, color, size = [13,11,17,13], extra = {}) => map.addLayer({
+    id, type:'symbol', source, 'source-layer':'poi', minzoom, filter,
+    layout:{ 'text-field':NAME, 'text-font':textFont, 'text-size':['interpolate',['linear'],['zoom'],...size],
+             'text-optional':true, 'text-max-width':8, ...extra },
+    paint:{ 'text-color':color, 'text-halo-color':'#fff', 'text-halo-width':1.5 } });
+  const dot = (id, filter, minzoom, color, r) => map.addLayer({
+    id, type:'circle', source, 'source-layer':'poi', minzoom, filter,
+    paint:{ 'circle-radius':r, 'circle-color':color, 'circle-stroke-color':'#fff', 'circle-stroke-width':1.5 } });
+
+  // 捷運站／火車站（不含出入口）
+  const station = ['all', ['==', ['get','class'], 'railway'],
     ['!', ['in', ['get','subclass'], ['literal', ['subway_entrance','train_station_entrance','platform']]]]];
-  map.addLayer({ id:'stations-dot', type:'circle', source, 'source-layer':'poi', minzoom:12, filter,
-    paint:{ 'circle-radius':['interpolate',['linear'],['zoom'],12,3,16,5.5], 'circle-color':'#0b6fb8',
-            'circle-stroke-color':'#fff', 'circle-stroke-width':1.5 } });
-  map.addLayer({ id:'stations-label', type:'symbol', source, 'source-layer':'poi', minzoom:13, filter,
-    layout:{ 'text-field':NAME, 'text-font':textFont, 'text-size':['interpolate',['linear'],['zoom'],13,11,17,13],
-             'text-offset':[0,0.9], 'text-anchor':'top', 'text-optional':true },
-    paint:{ 'text-color':'#0b4f86', 'text-halo-color':'#fff', 'text-halo-width':1.5 } });
+  dot('stations-dot', station, 12, '#0b6fb8', ['interpolate',['linear'],['zoom'],12,3,16,5.5]);
+  label('stations-label', station, 13, '#0b4f86', [13,11,17,13], { 'text-offset':[0,0.9], 'text-anchor':'top' });
+
+  // 公園綠地：只顯示名稱
+  label('parks-label', cls(['park','garden']), 13, '#2b7a3a', [13,11,17,13]);
+
+  // 景點地標：博物館、古蹟等先顯示；寺廟教堂數量多，放大後才顯示
+  label('sights-label', cls(['attraction','museum','art_gallery','castle','monument','zoo','theatre','stadium']), 13, '#6e4f99');
+  label('worship-label', cls(['place_of_worship']), 15, '#6e4f99', [15,10.5,17,12]);
+
+  // YouBike：放大到街道等級才顯示，名稱再放大一點才出現
+  const bike = cls(['bicycle_rental']);
+  dot('bike-dot', bike, 15, '#f2a900', ['interpolate',['linear'],['zoom'],15,3,18,5]);
+  label('bike-label', bike, 17, '#9a6b00', [17,10,19,11], { 'text-offset':[0,0.8], 'text-anchor':'top' });
+}
+
+function applyPoiVisibility(){
+  if (!map) return;
+  for (const [key, g] of Object.entries(POI_GROUPS))
+    for (const id of g.layers){
+      try { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', prefs.poi[key] ? 'visible' : 'none'); }
+      catch(e){ /* 地圖樣式尚未載入完成時略過，載入後會再套用一次 */ }
+    }
 }
 
 function createMap(view){
@@ -646,10 +691,22 @@ $('toggleList').onclick = () => $('app').classList.add('list-open');
 $('gear').onclick = e => { e.stopPropagation(); $('settings').classList.toggle('show'); $('gear').classList.toggle('on'); };
 $('settings').onclick = e => e.stopPropagation();
 document.addEventListener('click', () => { $('settings').classList.remove('show'); $('gear').classList.remove('on'); });
+$('poiOpts').innerHTML = Object.entries(POI_GROUPS).map(([k,g]) =>
+  `<label><input type="checkbox" data-poi="${k}" ${prefs.poi[k] ? 'checked' : ''}>${g.label}</label>`).join('');
+$('poiOpts').onchange = e => {
+  const k = e.target.dataset.poi; if (!k) return;
+  prefs.poi[k] = e.target.checked; savePrefs(); applyPoiVisibility();
+};
+function syncPoiOpts(){
+  const vec = VECTOR_BASES.includes(prefs.base);
+  $('poiOpts').classList.toggle('disabled', !vec);
+  $('poiNote').style.display = vec ? 'none' : 'block';
+}
+syncPoiOpts();
 $('fontSel').value = prefs.font;
 $('baseSel').value = prefs.base;
 $('fontSel').onchange = e => setFont(e.target.value);
-$('baseSel').onchange = e => setBase(e.target.value);
+$('baseSel').onchange = e => { setBase(e.target.value); syncPoiOpts(); };
 
 /* ---------- 啟動 ---------- */
 document.documentElement.style.setProperty('--font', FONTS[prefs.font].ui);
