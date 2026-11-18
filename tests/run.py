@@ -141,6 +141,21 @@ async def main():
         await page.select_option('#baseSel', 'emap'); await page.wait_for_timeout(50)
         check(await page.evaluate("document.getElementById('poiOpts').classList.contains('disabled')"), '切到臺灣通用電子地圖時，顯示項目變灰')
         await page.select_option('#baseSel', 'liberty')
+        # 地圖固定平面：不能傾斜，3D 建築換成平面圖層
+        check(await page.evaluate('__map.o.maxPitch === 0'), '地圖不能傾斜成立體視角')
+        res = await page.evaluate('''() => new Promise(done => {
+          const m = __map, added = [], hidden = [];
+          m.getStyle = () => ({ layers:[
+            { id:'building', type:'fill', source:'openmaptiles', 'source-layer':'building', paint:{ 'fill-color':'#abc' } },
+            { id:'building-3d', type:'fill-extrusion', source:'openmaptiles', 'source-layer':'building', minzoom:14 } ],
+            sources:{ openmaptiles:{ type:'vector' } } });
+          m.addLayer = (l, before) => added.push({ id:l.id, type:l.type, color:l.paint?.['fill-color'], before });
+          m.setLayoutProperty = (id, k, v) => { if (k === 'visibility' && v === 'none') hidden.push(id); };
+          m.setStyle(); setTimeout(() => done({ added, hidden }), 50);
+        })''')
+        flat = [a for a in res['added'] if a['id'] == 'building-3d-flat']
+        check('building-3d' in res['hidden'] and flat and flat[0]['type'] == 'fill' and flat[0]['color'] == '#abc' and flat[0]['before'] == 'building-3d',
+              f'3D 建築被隱藏，改用同色的平面建築圖層（{flat}）')
         await page.mouse.click(900, 500); await page.wait_for_timeout(50)
         check(not await page.is_visible('#settings'), '點旁邊會收起設定面板')
         await page.click('#fab'); await page.wait_for_timeout(300); await page.click('[data-mode=click]')

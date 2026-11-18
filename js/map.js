@@ -1,4 +1,5 @@
 // 地圖：建立地圖、切換底圖與字體、捷運站／公園／景點等地點圖層、縮放按鈕
+// 地圖固定平面顯示：不能傾斜，建築物也畫成平面（3D 建築在低解析度螢幕上看起來不舒服）
 
 import { BASEMAPS, FONTS, VECTOR_BASES, POI_GROUPS } from './config.js';
 import { prefs, savePrefs } from './prefs.js';
@@ -20,7 +21,9 @@ export function createMap(){
     zoom: view?.zoom ?? 12.6,
     localIdeographFontFamily: FONTS[prefs.font].map,
     attributionControl: { compact: true },
+    maxPitch: 0,          // 不能把地圖傾斜成立體視角
   });
+  map.on('style.load', flattenBuildings);
   map.on('style.load', localizeLabels);
   map.on('click', e => {
     if (!state.adding) return;
@@ -45,6 +48,25 @@ export function setFont(key){
 export function setBase(key){
   prefs.base = key; savePrefs();
   map.setStyle(BASEMAPS[key]);
+}
+
+// 把 3D 建築換成平面的建築輪廓：隱藏立體圖層，在同一位置加一個平面圖層
+function flattenBuildings(){
+  const layers = map.getStyle().layers || [];
+  // 沿用底圖原本平面建築的顏色（沒有的話用淺灰）
+  const flat = layers.find(l => l.type === 'fill' && l['source-layer'] === 'building');
+  const color = flat?.paint?.['fill-color'] || '#dedad6';
+  for (const layer of layers){
+    if (layer.type !== 'fill-extrusion') continue;
+    const id = layer.id + '-flat';
+    if (!map.getLayer(id)){
+      map.addLayer({ id, type:'fill', source:layer.source, 'source-layer':layer['source-layer'],
+        ...(layer.filter ? { filter:layer.filter } : {}),
+        ...(layer.minzoom != null ? { minzoom:layer.minzoom } : {}),
+        paint:{ 'fill-color':color, 'fill-outline-color':'#cfc9c3' } }, layer.id);
+    }
+    map.setLayoutProperty(layer.id, 'visibility', 'none');
+  }
 }
 
 // 讓向量地圖優先顯示中文地名；隱藏地圖原有的地點標示，改用下面可勾選的圖層
