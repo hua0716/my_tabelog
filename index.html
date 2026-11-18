@@ -31,6 +31,9 @@
   .filters select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:#fff;font-size:13px;color:var(--ink)}
   .legend{display:flex;flex-wrap:wrap;gap:4px 10px}
   .legend span{display:inline-flex;align-items:center;gap:4px}
+  .avg{font-size:12px;color:var(--muted)}
+  .who-rated{margin-top:4px}
+  .rate-hint{font-size:12px;color:var(--muted);margin-top:6px}
   .tag-want{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 7px;color:#666;line-height:18px}
   .seg{display:flex;border:1px solid var(--line);border-radius:999px;padding:2px;width:max-content}
   .seg button{border:0;background:none;border-radius:999px;padding:5px 14px;font-size:13px;cursor:pointer;color:#666}
@@ -56,6 +59,13 @@
   .gear{top:10px}
   .zoom-in{top:54px}
   .zoom-out{top:98px}
+  .locate-btn{top:142px}
+  .locate-btn.busy svg{animation:spin 1s linear infinite}
+  .locate-btn.on{color:#1c7ed6}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .me-dot{width:16px;height:16px;border-radius:50%;background:#1c7ed6;border:3px solid #fff;box-shadow:0 0 0 2px rgba(28,126,214,.25),0 1px 4px rgba(0,0,0,.3);position:relative}
+  .me-dot::after{content:'';position:absolute;inset:-9px;border-radius:50%;background:rgba(28,126,214,.18);animation:pulse 2s ease-out infinite}
+  @keyframes pulse{0%{transform:scale(.5);opacity:1}100%{transform:scale(1.6);opacity:0}}
   .gear:hover,.gear.on,.zoom-btn:hover{background:#f2f2f2}
   .zoom-btn:active{background:#e9e9e9}
   .settings{position:absolute;top:10px;left:54px;z-index:7;background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;width:250px;display:none;flex-direction:column;gap:10px;font-size:13px;color:#555}
@@ -141,6 +151,20 @@
   #pinInput{font-size:18px;letter-spacing:.3em;text-align:center}
   .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:200;opacity:0;pointer-events:none;transition:all .25s;max-width:90vw}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .admin-modal{max-width:460px}
+  .admin-list{margin:-6px 0 14px;max-height:45vh;overflow-y:auto}
+  .admin-row{padding:10px 0;border-bottom:1px solid var(--line)}
+  .admin-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .admin-name{font-size:14px}
+  .badge{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:6px;color:#666;line-height:18px;display:inline-block}
+  .badge.off{color:#c0392b;border-color:#f3c7c2}
+  .admin-row.inactive .admin-name{color:var(--muted)}
+  .admin-actions{display:flex;gap:12px;flex-shrink:0}
+  .admin-edit{display:flex;gap:6px;margin-top:8px}
+  .admin-edit input,.admin-add-row input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;outline:none;font-size:13px}
+  .admin-edit input:focus,.admin-add-row input:focus{border-color:#bbb}
+  .admin-add-row{display:flex;gap:6px;margin-top:8px}
+  .admin-tip{font-size:11px;color:var(--muted);line-height:1.6;margin:8px 0 10px}
   .load-error{height:100%;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted);line-height:1.8;font-size:14px}
 
   @media (max-width:760px){
@@ -194,6 +218,9 @@
     <button class="zoom-btn zoom-out" id="zoomOut" title="縮小" aria-label="縮小">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14"/></svg>
     </button>
+    <button class="zoom-btn locate-btn" id="locateBtn" title="我的位置" aria-label="我的位置">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
     <div class="settings" id="settings">
       <div class="settings-title">設定</div>
       <label>字體
@@ -238,7 +265,7 @@
     <div class="err" id="fErr">請填寫餐廳名稱</div>
     <div class="field"><label>類別</label><div class="cat-pick" id="fCat"></div></div>
     <div class="field"><label>狀態</label><div class="seg" id="fVisit"><button type="button" data-v="1">已拜訪</button><button type="button" data-v="0">未探訪</button></div></div>
-    <div class="field" id="fRateField"><label>評分</label><div class="rate" id="fRate"></div></div>
+    <div class="field" id="fRateField"><label>我的評分　<button type="button" class="link" id="fRateClear">清除</button></label><div class="rate" id="fRate"></div><div class="rate-hint" id="fRateHint"></div></div>
     <div class="field"><label>地址（選填）</label><input id="fAddr" maxlength="120"></div>
     <div class="field"><label>備註／推薦菜色</label><textarea id="fNote" maxlength="500"></textarea></div>
     <div class="foot">
@@ -279,6 +306,21 @@
       </div>
     </div>
   </form>
+</div>
+<div class="overlay" id="adminOverlay">
+  <div class="modal admin-modal">
+    <h2>管理使用者</h2>
+    <div class="admin-list" id="adminList"></div>
+    <div class="settings-sub">新增使用者</div>
+    <div class="admin-add-row">
+      <input id="newName" placeholder="名字" maxlength="20" autocomplete="off">
+      <input id="newPin" placeholder="PIN（至少 6 碼）" maxlength="32" inputmode="numeric" autocomplete="off">
+      <button type="button" class="btn primary" id="addEditorBtn">新增</button>
+    </div>
+    <p class="admin-tip">新增或重設 PIN 後，請私下把 PIN 告訴對方。PIN 加密保存，之後無法再查看原本的數字。</p>
+    <div class="err" id="adminErr"></div>
+    <div class="foot"><div class="right"><button type="button" class="btn" id="adminClose">關閉</button></div></div>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -331,12 +373,16 @@ const savePrefs = () => { try { localStorage.setItem('tfm-prefs', JSON.stringify
 
 /* ================= 資料層：Supabase ================= */
 let sb;
-const norm = r => ({ ...r, addr: r.addr || '', note: r.note || '', by: r.created_by, visited: r.visited !== false });
+const norm = r => {
+  const ratings = (r.ratings || []).filter(x => x && x.rating).sort((a,b) => a.editor_name.localeCompare(b.editor_name, 'zh-Hant'));
+  const avg = ratings.length ? ratings.reduce((s,x) => s + x.rating, 0) / ratings.length : null;
+  return { ...r, addr: r.addr || '', note: r.note || '', by: r.created_by, visited: r.visited !== false, ratings, avg };
+};
 const store = {
   _items: [],
   init(){ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } }); },
   async load(){
-    const { data, error } = await sb.from('restaurants').select('*').order('created_at', { ascending:false });
+    const { data, error } = await sb.from('restaurants').select('*, ratings(editor_name, rating)').order('created_at', { ascending:false });
     if (error) throw error;
     this._items = data.map(norm);
   },
@@ -347,7 +393,8 @@ const store = {
     if (!data?.ok){ const e = new Error(data?.error || 'unknown'); e.code = data?.error; throw e; }
     return data;
   },
-  async verify(pin){ return (await this._rpc('verify_pin', { p_pin:pin })).name; },
+  async verify(pin){ const d = await this._rpc('verify_pin', { p_pin:pin }); return { name:d.name, isAdmin:!!d.is_admin }; },
+  admin(pin, fn, args = {}){ return this._rpc(fn, { p_pin: pin, ...args }); },
   async add(r, pin){
     const d = await this._rpc('add_restaurant', { p_pin:pin, p_name:r.name, p_cat:r.cat, p_rating:r.rating,
       p_lat:r.lat, p_lng:r.lng, p_addr:r.addr, p_note:r.note, p_visited:r.visited });
@@ -399,7 +446,11 @@ function startApp(){
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ratingText = n => '★'.repeat(n) + '<span style="color:#ddd">' + '★'.repeat(5-n) + '</span>';
-const statusHtml = r => r.visited ? `<span class="rating">${ratingText(r.rating || 0)}</span>` : '<span class="tag-want">未探訪</span>';
+const fmtAvg = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
+const statusHtml = r => !r.visited ? '<span class="tag-want">未探訪</span>'
+  : r.avg == null ? '<span class="tag-want">尚未評分</span>'
+  : `<span class="rating">${ratingText(Math.round(r.avg))}</span> <span class="avg">${fmtAvg(r.avg)}${r.ratings.length > 1 ? `・${r.ratings.length} 人` : ''}</span>`;
+const myRating = r => r?.ratings?.find(x => x.editor_name === auth.name)?.rating ?? null;
 
 const state = { cat:'全部', visit:'all', formVisited:true, q:'', minRate:0, adding:false, activeId:null, editing:null, pending:null, rating:4, formCat:CATEGORIES[0].id };
 let map, markers = {};
@@ -520,8 +571,8 @@ function setBase(key){
 function rateOk(r){
   const f = state.minRate;
   if (!f) return true;
-  if (!r.visited || !r.rating) return false;
-  return f > 0 ? r.rating >= f : r.rating <= -f;
+  if (!r.visited || r.avg == null) return false;
+  return f > 0 ? r.avg >= f : r.avg <= -f;
 }
 
 function filtered(){
@@ -539,6 +590,7 @@ function popupHtml(r){
   return `<div class="pop">
     <h3><span class="dot" style="background:${c.color}"></span>${esc(r.name)}</h3>
     <div class="meta">${statusHtml(r)}　${esc(r.cat)}${r.addr ? '・'+esc(r.addr) : ''}</div>
+    ${r.visited && r.ratings.length ? `<div class="meta who-rated">${r.ratings.map(x => `${esc(x.editor_name)} ${x.rating}★`).join('・')}</div>` : ''}
     ${r.note ? `<p>${esc(r.note)}</p>` : ''}
     <div class="meta">由 ${esc(r.by)} 新增${r.updated_by && r.updated_by !== r.by ? `・${esc(r.updated_by)} 編輯過` : ''}</div>
     <div class="actions">
@@ -548,6 +600,7 @@ function popupHtml(r){
 }
 
 function renderMarkers(){
+  if (!map) return;
   Object.values(markers).forEach(m => m.remove());
   markers = {};
   filtered().forEach(r => {
@@ -598,19 +651,20 @@ function toast(msg){
 }
 
 /* ---------- PIN 解鎖 ---------- */
-const auth = { pin:null, name:null };
+const auth = { pin:null, name:null, isAdmin:false };
 try { const saved = JSON.parse(localStorage.getItem('tfm-auth')); if (saved?.pin) Object.assign(auth, saved); } catch(e){}
 function saveAuth(){ try { auth.pin ? localStorage.setItem('tfm-auth', JSON.stringify(auth)) : localStorage.removeItem('tfm-auth'); } catch(e){} }
-function lock(){ auth.pin = null; auth.name = null; saveAuth(); renderEditbar(); }
+function lock(){ auth.pin = null; auth.name = null; auth.isAdmin = false; saveAuth(); renderEditbar(); closeAdmin(); }
 function renderEditbar(){
   $('editbar').innerHTML = auth.pin
-    ? `已解鎖編輯：<b>${esc(auth.name)}</b>　<button class="link" data-act="lock">登出</button>`
+    ? `已解鎖編輯：<b>${esc(auth.name)}</b>　${auth.isAdmin ? '<button class="link" data-act="admin">管理使用者</button>　' : ''}<button class="link" data-act="lock">登出</button>`
     : `<button class="link" data-act="unlock">輸入 PIN 以編輯</button>`;
 }
 $('editbar').onclick = e => {
   const act = e.target.dataset?.act;
   if (act === 'lock'){ lock(); toast('已登出'); }
   if (act === 'unlock') requirePin();
+  if (act === 'admin') openAdmin();
 };
 
 let pinResolve = null;
@@ -628,9 +682,9 @@ $('pinForm').onsubmit = async e => {
   if (!pin) return;
   $('pinOk').disabled = true;
   try {
-    const name = await store.verify(pin);
-    auth.pin = pin; auth.name = name; saveAuth(); renderEditbar();
-    toast(`歡迎，${name}！`);
+    const me = await store.verify(pin);
+    auth.pin = pin; auth.name = me.name; auth.isAdmin = me.isAdmin; saveAuth(); renderEditbar(); render();
+    toast(`歡迎，${me.name}！`);
     closePin(true);
   } catch(err){
     $('pinErr').textContent = err.code === 'locked' ? '嘗試次數過多，請 10 分鐘後再試' :
@@ -649,6 +703,109 @@ function handleError(err){
   else if (err.code === 'not_found') toast('這家餐廳已經被別人刪除了');
   else toast('儲存失敗，請檢查網路後再試');
 }
+
+/* ---------- 管理使用者（管理員） ---------- */
+const ADMIN_ERR = {
+  bad_name:'名字需為 1～20 個字', bad_pin:'PIN 需為 6～32 碼', name_taken:'這個名字已經有人用了',
+  pin_taken:'這組 PIN 已經有人用了，請換一組', self:'不能停用自己', not_admin:'只有管理員可以使用這個功能',
+  not_found:'找不到這位使用者，請重新整理',
+};
+let adminEditors = [];
+function adminError(err){
+  if (err.code === 'invalid_pin' || err.code === 'locked') return handleError(err);
+  $('adminErr').textContent = ADMIN_ERR[err.code] || '操作失敗，請檢查網路後再試';
+  $('adminErr').style.display = 'block';
+}
+async function openAdmin(){
+  $('adminErr').style.display = 'none'; $('newName').value = ''; $('newPin').value = '';
+  $('adminList').innerHTML = '<div class="empty">載入中…</div>';
+  $('adminOverlay').classList.add('show');
+  await loadEditors();
+}
+function closeAdmin(){ $('adminOverlay').classList.remove('show'); }
+async function loadEditors(){
+  try { adminEditors = (await store.admin(auth.pin, 'admin_list_editors')).data; renderEditors(); }
+  catch(err){ adminError(err); $('adminList').innerHTML = ''; }
+}
+function renderEditors(){
+  $('adminList').innerHTML = adminEditors.map(e => {
+    const me = e.name === auth.name;
+    return `<div class="admin-row ${e.active ? '' : 'inactive'}" data-id="${e.id}">
+      <div class="admin-top">
+        <div class="admin-name">${esc(e.name)}${me ? '（你）' : ''}${e.is_admin ? '<span class="badge">管理員</span>' : ''}${e.active ? '' : '<span class="badge off">已停用</span>'}</div>
+        <div class="admin-actions">
+          <button type="button" class="link" data-act="rename">改名</button>
+          <button type="button" class="link" data-act="pin">重設 PIN</button>
+          ${me ? '' : `<button type="button" class="link" data-act="toggle">${e.active ? '停用' : '啟用'}</button>`}
+        </div>
+      </div>
+      <div class="admin-edit" hidden>
+        <input autocomplete="off" maxlength="32">
+        <button type="button" class="btn primary" data-act="ok">確定</button>
+        <button type="button" class="btn" data-act="cancel">取消</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+$('adminList').onclick = async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const row = b.closest('.admin-row'), id = +row.dataset.id, ed = adminEditors.find(x => x.id === id);
+  const box = row.querySelector('.admin-edit'), input = box.querySelector('input');
+  $('adminErr').style.display = 'none';
+  const act = b.dataset.act;
+  if (act === 'rename' || act === 'pin'){
+    document.querySelectorAll('.admin-edit').forEach(x => { if (x !== box) x.hidden = true; });
+    box.hidden = false; box.dataset.mode = act;
+    input.value = act === 'rename' ? ed.name : '';
+    input.placeholder = act === 'rename' ? '新的名字' : '新的 PIN（至少 6 碼）';
+    input.inputMode = act === 'pin' ? 'numeric' : 'text';
+    input.maxLength = act === 'rename' ? 20 : 32;
+    input.focus(); input.select();
+  }
+  else if (act === 'cancel') box.hidden = true;
+  else if (act === 'ok'){
+    const v = input.value.trim(); if (!v) return input.focus();
+    b.disabled = true;
+    try {
+      if (box.dataset.mode === 'rename'){
+        await store.admin(auth.pin, 'admin_rename_editor', { p_id:id, p_name:v });
+        if (ed.name === auth.name){ auth.name = v; saveAuth(); renderEditbar(); }
+        toast('已改名'); refresh();
+      } else {
+        await store.admin(auth.pin, 'admin_reset_pin', { p_id:id, p_new_pin:v });
+        if (ed.name === auth.name){ auth.pin = v; saveAuth(); }
+        toast(`已重設 ${ed.name} 的 PIN`);
+      }
+      await loadEditors();
+    } catch(err){ adminError(err); }
+    finally { b.disabled = false; }
+  }
+  else if (act === 'toggle'){
+    b.disabled = true;
+    try { await store.admin(auth.pin, 'admin_set_active', { p_id:id, p_active:!ed.active }); toast(ed.active ? `已停用 ${ed.name}` : `已啟用 ${ed.name}`); await loadEditors(); }
+    catch(err){ adminError(err); }
+    finally { b.disabled = false; }
+  }
+};
+$('adminList').onkeydown = e => {
+  if (e.key === 'Enter' && e.target.matches('.admin-edit input')){ e.preventDefault(); e.target.parentElement.querySelector('[data-act=ok]').click(); }
+};
+$('addEditorBtn').onclick = async () => {
+  const name = $('newName').value.trim(), pin = $('newPin').value.trim();
+  $('adminErr').style.display = 'none';
+  if (!name) return $('newName').focus();
+  if (!pin) return $('newPin').focus();
+  $('addEditorBtn').disabled = true;
+  try {
+    await store.admin(auth.pin, 'admin_add_editor', { p_name:name, p_new_pin:pin });
+    toast(`已新增 ${name}`); $('newName').value = ''; $('newPin').value = '';
+    await loadEditors();
+  } catch(err){ adminError(err); }
+  finally { $('addEditorBtn').disabled = false; }
+};
+$('newPin').onkeydown = e => { if (e.key === 'Enter') $('addEditorBtn').click(); };
+$('adminClose').onclick = closeAdmin;
+$('adminOverlay').onclick = e => { if (e.target === $('adminOverlay')) closeAdmin(); };
 
 /* ---------- 新增模式 ---------- */
 function setAdding(on){
@@ -751,7 +908,8 @@ function renderFormCats(){
 }
 $('fCat').onclick = e => { const b = e.target.closest('button'); if (b){ state.formCat = b.dataset.cat; renderFormCats(); } };
 function renderRate(){
-  $('fRate').innerHTML = [1,2,3,4,5].map(n => `<button type="button" data-n="${n}" class="${n<=state.rating?'on':''}">★</button>`).join('');
+  $('fRate').innerHTML = [1,2,3,4,5].map(n => `<button type="button" data-n="${n}" class="${state.rating && n<=state.rating?'on':''}">★</button>`).join('');
+  $('fRateClear').style.visibility = state.rating ? 'visible' : 'hidden';
 }
 function renderVisit(){
   document.querySelectorAll('#fVisit button').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === state.formVisited));
@@ -759,6 +917,7 @@ function renderVisit(){
 }
 $('fVisit').onclick = e => { const b = e.target.closest('button'); if (b){ state.formVisited = b.dataset.v === '1'; renderVisit(); } };
 $('fRate').onclick = e => { const n = +e.target.dataset.n; if (n){ state.rating = n; renderRate(); } };
+$('fRateClear').onclick = () => { state.rating = null; renderRate(); };
 
 window.openForm = async function(id, preset = {}){
   Object.values(markers).forEach(x => x.getPopup().isOpen() && x.togglePopup());
@@ -773,7 +932,9 @@ window.openForm = async function(id, preset = {}){
   $('fAddr').value = r?.addr || '';
   $('fNote').value = r?.note || '';
   state.formCat = r?.cat || CATEGORIES[0].id; renderFormCats();
-  state.rating = r?.rating || 4; renderRate();
+  state.rating = r ? myRating(r) : 4; renderRate();
+  const others = r ? r.ratings.filter(x => x.editor_name !== auth.name) : [];
+  $('fRateHint').textContent = others.length ? `其他人：${others.map(x => `${x.editor_name} ${x.rating}★`).join('・')}（不受你的評分影響）` : '';
   state.formVisited = r ? r.visited : true; renderVisit();
   $('fDel').style.visibility = r ? 'visible' : 'hidden';
   $('fDel').textContent = '刪除'; $('fDel').dataset.confirm = '';
@@ -791,10 +952,12 @@ $('form').onsubmit = async e => {
   const btn = $('form').querySelector('[type=submit]');
   btn.disabled = true; btn.textContent = '儲存中…';
   try {
-    const saved = state.editing
+    const raw = state.editing
       ? await store.update(state.editing.id, data, auth.pin)
       : await store.add({ ...data, lat:state.pending.lat, lng:state.pending.lng }, auth.pin);
     closeForm();
+    try { await store.load(); } catch(e){}
+    const saved = store.all().find(x => x.id === raw.id) || raw;
     if (state.cat !== '全部' && state.cat !== saved.cat) state.cat = '全部';
     if (state.visit !== 'all' && (state.visit === 'yes') !== saved.visited){ state.visit = 'all'; $('visitSel').value = 'all'; }
     if (!rateOk(saved)){ state.minRate = 0; $('minRate').value = '0'; }
@@ -814,6 +977,7 @@ $('fDel').onclick = async () => {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if ($('pinOverlay').classList.contains('show')) closePin(false);
+  else if ($('adminOverlay').classList.contains('show')) closeAdmin();
   else if ($('urlOverlay').classList.contains('show')) closeUrlDialog();
   else if ($('fabMenu').classList.contains('open')) toggleFabMenu(false);
   else if ($('overlay').classList.contains('show')) closeForm();
@@ -850,6 +1014,28 @@ function syncPoiOpts(){
 syncPoiOpts();
 $('zoomIn').onclick = () => map && map.zoomIn({ duration:250 });
 $('zoomOut').onclick = () => map && map.zoomOut({ duration:250 });
+
+/* ---------- 我的位置（只在瀏覽器裡使用，不會上傳） ---------- */
+let meMarker = null, mePos = null;
+function locateMe(){
+  if (!navigator.geolocation || !window.isSecureContext){ toast('這個瀏覽器或網址無法使用定位'); return; }
+  const btn = $('locateBtn'); btn.classList.add('busy');
+  navigator.geolocation.getCurrentPosition(pos => {
+    btn.classList.remove('busy'); btn.classList.add('on');
+    mePos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    if (!meMarker){
+      const el = document.createElement('div'); el.className = 'me-dot'; el.title = '你的位置';
+      meMarker = new maplibregl.Marker({ element:el });
+    }
+    meMarker.setLngLat([mePos.lng, mePos.lat]).addTo(map);
+    map.flyTo({ center:[mePos.lng, mePos.lat], zoom:Math.max(map.getZoom(), 15), duration:800 });
+  }, err => {
+    btn.classList.remove('busy');
+    toast(err.code === 1 ? '定位權限被拒絕，請在瀏覽器的網站設定中允許「位置」' :
+          err.code === 3 ? '定位逾時，請到訊號較好的地方再試一次' : '目前無法取得你的位置');
+  }, { enableHighAccuracy:true, timeout:12000, maximumAge:30000 });
+}
+$('locateBtn').onclick = locateMe;
 $('fontSel').value = prefs.font;
 $('baseSel').value = prefs.base;
 $('fontSel').onchange = e => setFont(e.target.value);
@@ -859,10 +1045,29 @@ $('baseSel').onchange = e => { setBase(e.target.value); syncPoiOpts(); };
 document.documentElement.style.setProperty('--font', FONTS[prefs.font].ui);
 renderEditbar();
 store.init();
+if (auth.pin){
+  store.verify(auth.pin).then(me => {
+    auth.name = me.name; auth.isAdmin = me.isAdmin; saveAuth(); renderEditbar(); render();
+  }).catch(err => { if (err.code === 'invalid_pin'){ lock(); toast('你的 PIN 已變更或停用，請重新輸入'); } });
+}
 async function refresh(){
-  try { await store.load(); render(); }
+  // 重新整理時保留目前打開的資訊視窗
+  const openId = Object.entries(markers).find(([,m]) => m.getPopup().isOpen())?.[0];
+  try {
+    await store.load(); render();
+    if (openId && markers[openId] && !markers[openId].getPopup().isOpen()) markers[openId].togglePopup();
+  }
   catch(err){ console.warn(err); toast('讀取資料失敗，請檢查網路後重新整理'); }
 }
+// 即時同步：別人新增、修改、評分時自動更新
+let refreshTimer;
+const scheduleRefresh = () => { clearTimeout(refreshTimer); refreshTimer = setTimeout(refresh, 400); };
+try {
+  sb.channel('food-map')
+    .on('postgres_changes', { event:'*', schema:'public', table:'restaurants' }, scheduleRefresh)
+    .on('postgres_changes', { event:'*', schema:'public', table:'ratings' }, scheduleRefresh)
+    .subscribe();
+} catch(e){ console.warn('即時同步無法啟用', e); }
 const fontReady = document.fonts?.load ? document.fonts.load(`16px ${FONTS[prefs.font].ui}`, '臺北市中山區') : Promise.resolve();
 fontReady.catch(()=>{}).finally(() => { createMap(); render(); refresh(); });
 // 切回這個分頁時自動更新，看到別人新增的餐廳
