@@ -388,6 +388,7 @@ function createMap(view){
   map.on('style.load', localizeLabels);
   map.on('click', e => {
     if (!state.adding) return;
+    if (e.originalEvent?.target?.closest?.('.marker')) return;   // 新增模式下點到既有圓點不算
     state.pending = e.lngLat;
     setAdding(false);
     openForm(null);
@@ -443,7 +444,7 @@ function renderMarkers(){
     el.style.borderColor = r.visited ? '' : catOf(r.cat).color;
     el.style.background = catOf(r.cat).color;
     el.title = r.name;
-    el.addEventListener('click', ev => { ev.stopPropagation(); if (!state.adding) setActive(r.id, false); });
+    el.addEventListener('click', () => { if (!state.adding) setActive(r.id, false); });
     const popup = new maplibregl.Popup({ offset:12, maxWidth:'280px' }).setHTML(popupHtml(r));
     markers[r.id] = new maplibregl.Marker({ element:el }).setLngLat([r.lng, r.lat]).setPopup(popup).addTo(map);
   });
