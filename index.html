@@ -32,7 +32,11 @@
   .legend{display:flex;flex-wrap:wrap;gap:4px 10px}
   .legend span{display:inline-flex;align-items:center;gap:4px}
   .avg{font-size:12px;color:var(--muted)}
-  .who-rated{margin-top:4px}
+  .reviews{margin:10px 0 4px;display:flex;flex-direction:column;gap:7px;max-height:180px;overflow-y:auto}
+  .rv{font-size:12px;line-height:1.55}
+  .rv-name{font-weight:600;color:var(--ink)}
+  .rv-stars{margin-left:6px;color:var(--muted)}
+  .rv-note{color:#444;font-size:13px;white-space:pre-wrap;word-break:break-word}
   .rate-hint{font-size:12px;color:var(--muted);margin-top:6px}
   .tag-want{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 7px;color:#666;line-height:18px}
   .seg{display:flex;border:1px solid var(--line);border-radius:999px;padding:2px;width:max-content}
@@ -182,7 +186,7 @@
     <div class="head">
       <h1 class="title">台北美食地圖</h1>
       <div class="editbar" id="editbar"></div>
-      <input id="q" class="search" type="search" placeholder="搜尋餐廳名稱或備註">
+      <input id="q" class="search" type="search" placeholder="搜尋餐廳名稱、地址或備註">
       <div class="filters">
         <label>分類
           <select id="catSel"></select>
@@ -267,7 +271,7 @@
     <div class="field"><label>狀態</label><div class="seg" id="fVisit"><button type="button" data-v="1">已拜訪</button><button type="button" data-v="0">未探訪</button></div></div>
     <div class="field" id="fRateField"><label>我的評分　<button type="button" class="link" id="fRateClear">清除</button></label><div class="rate" id="fRate"></div><div class="rate-hint" id="fRateHint"></div></div>
     <div class="field"><label>地址（選填）</label><input id="fAddr" maxlength="120"></div>
-    <div class="field"><label>備註／推薦菜色</label><textarea id="fNote" maxlength="500"></textarea></div>
+    <div class="field"><label>我的備註</label><textarea id="fNote" maxlength="500" placeholder="寫下你的心得、推薦菜色…（其他人的備註不受影響）"></textarea></div>
     <div class="foot">
       <button type="button" class="btn danger" id="fDel">刪除</button>
       <div class="right">
@@ -374,15 +378,18 @@ const savePrefs = () => { try { localStorage.setItem('tfm-prefs', JSON.stringify
 /* ================= 資料層：Supabase ================= */
 let sb;
 const norm = r => {
-  const ratings = (r.ratings || []).filter(x => x && x.rating).sort((a,b) => a.editor_name.localeCompare(b.editor_name, 'zh-Hant'));
+  // reviews：每個人的評分＋備註；ratings：其中有評分的部分（用來算平均）
+  const reviews = (r.ratings || []).filter(x => x && (x.rating || x.comment)).sort((a,b) => a.editor_name.localeCompare(b.editor_name, 'zh-Hant'));
+  const ratings = reviews.filter(x => x.rating);
   const avg = ratings.length ? ratings.reduce((s,x) => s + x.rating, 0) / ratings.length : null;
-  return { ...r, addr: r.addr || '', note: r.note || '', by: r.created_by, visited: r.visited !== false, ratings, avg };
+  return { ...r, addr: r.addr || '', by: r.created_by, visited: r.visited !== false, reviews, ratings, avg,
+           comments: reviews.map(x => x.comment || '').join(' ') };
 };
 const store = {
   _items: [],
   init(){ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } }); },
   async load(){
-    const { data, error } = await sb.from('restaurants').select('*, ratings(editor_name, rating)').order('created_at', { ascending:false });
+    const { data, error } = await sb.from('restaurants').select('*, ratings(editor_name, rating, comment)').order('created_at', { ascending:false });
     if (error) throw error;
     this._items = data.map(norm);
   },
@@ -450,7 +457,8 @@ const fmtAvg = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
 const statusHtml = r => !r.visited ? '<span class="tag-want">未探訪</span>'
   : r.avg == null ? '<span class="tag-want">尚未評分</span>'
   : `<span class="rating">${ratingText(Math.round(r.avg))}</span> <span class="avg">${fmtAvg(r.avg)}${r.ratings.length > 1 ? `・${r.ratings.length} 人` : ''}</span>`;
-const myRating = r => r?.ratings?.find(x => x.editor_name === auth.name)?.rating ?? null;
+const myReview = r => r?.reviews?.find(x => x.editor_name === auth.name) || null;
+const myRating = r => myReview(r)?.rating ?? null;
 
 const state = { cat:'全部', visit:'all', formVisited:true, q:'', minRate:0, adding:false, activeId:null, editing:null, pending:null, rating:4, formCat:CATEGORIES[0].id };
 let map, markers = {};
@@ -581,7 +589,7 @@ function filtered(){
     (state.cat === '全部' || r.cat === state.cat) &&
     (state.visit === 'all' || (state.visit === 'yes') === r.visited) &&
     rateOk(r) &&
-    (!q || (r.name + ' ' + (r.note||'') + ' ' + (r.addr||'')).toLowerCase().includes(q)));
+    (!q || (r.name + ' ' + (r.comments||'') + ' ' + (r.addr||'')).toLowerCase().includes(q)));
 }
 
 function popupHtml(r){
@@ -590,8 +598,9 @@ function popupHtml(r){
   return `<div class="pop">
     <h3><span class="dot" style="background:${c.color}"></span>${esc(r.name)}</h3>
     <div class="meta">${statusHtml(r)}　${esc(r.cat)}${r.addr ? '・'+esc(r.addr) : ''}</div>
-    ${r.visited && r.ratings.length ? `<div class="meta who-rated">${r.ratings.map(x => `${esc(x.editor_name)} ${x.rating}★`).join('・')}</div>` : ''}
-    ${r.note ? `<p>${esc(r.note)}</p>` : ''}
+    ${r.reviews.length ? `<div class="reviews">${r.reviews.map(x => `
+      <div class="rv"><span class="rv-name">${esc(x.editor_name)}</span>${r.visited && x.rating ? `<span class="rv-stars">${x.rating}★</span>` : ''}
+        ${x.comment ? `<div class="rv-note">${esc(x.comment)}</div>` : ''}</div>`).join('')}</div>` : ''}
     <div class="meta">由 ${esc(r.by)} 新增${r.updated_by && r.updated_by !== r.by ? `・${esc(r.updated_by)} 編輯過` : ''}</div>
     <div class="actions">
       <button class="btn primary" onclick="openForm('${r.id}')">編輯</button>
@@ -930,7 +939,7 @@ window.openForm = async function(id, preset = {}){
   $('fLocNote').style.display = (!r && preset.note) ? '' : 'none';
   if (!r) showTempPin(state.pending);
   $('fAddr').value = r?.addr || '';
-  $('fNote').value = r?.note || '';
+  $('fNote').value = r ? (myReview(r)?.comment || '') : '';
   state.formCat = r?.cat || CATEGORIES[0].id; renderFormCats();
   state.rating = r ? myRating(r) : 4; renderRate();
   const others = r ? r.ratings.filter(x => x.editor_name !== auth.name) : [];
