@@ -26,9 +26,14 @@ function popupHtml(r){
     </div></div>`;
 }
 
+// 重畫圓點時會移除舊的資訊視窗，這時不算「使用者關閉」，不要取消選中
+let redrawing = false;
+
 export function renderMarkers(){
   if (!map) return;
+  redrawing = true;
   Object.values(markers).forEach(m => m.remove());
+  redrawing = false;
   markers = {};
   filtered().forEach(r => {
     // 外層跟著地圖移動，內層是看得到的圓點（見 style.css 的說明）
@@ -42,6 +47,8 @@ export function renderMarkers(){
     el.title = r.name;
     el.addEventListener('click', () => { if (!state.adding) setActive(r.id, false); });
     const popup = new maplibregl.Popup({ offset:12, maxWidth:'280px' }).setHTML(popupHtml(r));
+    // 資訊視窗被關掉（點空白處、按 ✕、打開別家）時，取消這家的選中狀態
+    popup.on('close', () => { if (!redrawing && state.activeId === r.id) clearActive(); });
     markers[r.id] = new maplibregl.Marker({ element:el }).setLngLat([r.lng, r.lat]).setPopup(popup).addTo(map);
   });
 }
@@ -54,6 +61,12 @@ export function openPopupId(){
 }
 export function reopenPopup(id){
   if (id && markers[id] && !markers[id].getPopup().isOpen()) markers[id].togglePopup();
+}
+
+export function clearActive(){
+  state.activeId = null;
+  document.querySelectorAll('.item.active').forEach(el => el.classList.remove('active'));
+  Object.values(markers).forEach(m => m.getElement().classList.remove('active'));
 }
 
 // 選中一家餐廳：列表與圓點同時標示；fly=true 時地圖飛過去並打開資訊視窗

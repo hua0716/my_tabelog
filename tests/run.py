@@ -151,6 +151,16 @@ async def main():
         await page.keyboard.press('Escape'); await page.wait_for_timeout(50)
         check(not await page.is_visible('#overlay') and await page.query_selector('.temp-pin') is None, 'Esc 關閉表單並移除暫時標記')
 
+        # 點空白處關閉資訊視窗時，取消選中（圓點恢復大小、列表取消標示）
+        await page.click('.item'); await page.wait_for_timeout(100)
+        check(await page.query_selector('.marker.active') is not None, '點列表後圓點呈現選中（放大）')
+        await page.evaluate('__map.clickBlank()'); await page.wait_for_timeout(50)
+        check(await page.query_selector('.marker.active') is None and await page.query_selector('.item.active') is None, '點空白處關閉資訊視窗後，圓點與列表都取消選中')
+        # 即時更新重畫圓點時，正在看的那家不能被取消選中
+        await page.click('.item'); await page.wait_for_timeout(100)
+        await page.evaluate('__realtime[0]({})'); await page.wait_for_timeout(600)
+        check(await page.query_selector('.marker.active') is not None and await page.query_selector('.mock-popup') is not None, '自動更新後仍保持選中與資訊視窗')
+
         # 圓點：外層不可有動畫（否則拖曳地圖時會延遲），外觀與放大效果在內層
         tr = await page.evaluate("getComputedStyle(document.querySelector('.marker')).transitionDuration")
         check(tr in ('0s', ''), f'圓點外層沒有動畫，拖曳時不會延遲（transition={tr}）')
